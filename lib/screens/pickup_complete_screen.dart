@@ -16,26 +16,37 @@ class PickupCompleteScreen extends StatelessWidget {
               const Spacer(flex: 2),
 
               // Success Circle
-              Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.success.withValues(alpha: 0.15),
-                      AppColors.success.withValues(alpha: 0.05),
-                      Colors.transparent,
-                    ],
-                    radius: 1.2,
-                  ),
-                ),
+              TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.elasticOut,
+                tween: Tween(begin: 0.0, end: 1.0),
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: child,
+                  );
+                },
                 child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: AppColors.success,
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.success.withValues(alpha: 0.15),
+                        AppColors.success.withValues(alpha: 0.05),
+                        Colors.transparent,
+                      ],
+                      radius: 1.2,
+                    ),
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 48),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check, color: Colors.white, size: 48),
+                  ),
                 ),
               ),
 

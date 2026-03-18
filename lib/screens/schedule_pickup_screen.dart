@@ -12,6 +12,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   int _selectedCategoryIndex = 0;
   int _selectedDateIndex = 1; // Default to 'Tomorrow' or specific date
   int _selectedTimeSlot = 1; // Default to 'Afternoon'
+  bool _isLoading = false;
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Organic', 'icon': Icons.compost, 'color': AppColors.organic},
@@ -261,12 +262,18 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Logic to confirm
-                    // Could show success screen or go back home
-                     Navigator.pushNamed(context, '/pickup-complete'); // Assuming we flow to complete or home
+                  onPressed: _isLoading ? null : () async {
+                    setState(() => _isLoading = true);
+                    
+                    // Simulate network scheduling logic
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (!mounted) return;
+
+                    Navigator.pushNamed(context, '/pickup-complete'); // Flow to complete
                   },
-                  child: const Text('Confirm Schedule'),
+                  child: _isLoading
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Confirm Schedule'),
                 ),
               ),
             ),

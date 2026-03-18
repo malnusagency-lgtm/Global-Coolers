@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 
@@ -131,25 +133,41 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white10),
               ),
-              child: Stack(
+              clipBehavior: Clip.hardEdge,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: const LatLng(-1.2921, 36.8219), // Nairobi
+                  initialZoom: 11.5,
+                  interactionOptions: const InteractionOptions(flags: InteractiveFlag.none), // Disable pan/zoom for dashboard
+                ),
                 children: [
-                  const Center(
-                    child: Icon(Icons.map, color: Colors.white24, size: 64),
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.globalcoolers.app',
+                    // A simple color filter could go here to make it "dark mode"
+                    // but standard tiles work okay for prototype
                   ),
-                  Positioned(
-                    top: 40,
-                    left: 60,
-                    child: Icon(Icons.circle, color: Colors.green.withOpacity(0.6), size: 40),
-                  ),
-                  Positioned(
-                    bottom: 50,
-                    right: 80,
-                    child: Icon(Icons.circle, color: Colors.orange.withOpacity(0.6), size: 60),
-                  ),
-                  Positioned(
-                    top: 80,
-                    right: 40,
-                    child: Icon(Icons.circle, color: Colors.red.withOpacity(0.6), size: 30),
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: const LatLng(-1.2800, 36.8000), // Zone A - Low Density
+                        color: Colors.green.withValues(alpha: 0.6),
+                        borderStrokeWidth: 0,
+                        radius: 30,
+                      ),
+                      CircleMarker(
+                        point: const LatLng(-1.3100, 36.8400), // Zone B - High Density
+                        color: Colors.red.withValues(alpha: 0.6),
+                        borderStrokeWidth: 0,
+                        radius: 40,
+                      ),
+                      CircleMarker(
+                        point: const LatLng(-1.2700, 36.8500), // Zone C - Medium Density
+                        color: Colors.orange.withValues(alpha: 0.6),
+                        borderStrokeWidth: 0,
+                        radius: 25,
+                      ),
+                    ],
                   ),
                 ],
               ),

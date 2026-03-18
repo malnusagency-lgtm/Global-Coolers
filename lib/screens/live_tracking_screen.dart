@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme/app_colors.dart';
 
 class LiveTrackingScreen extends StatelessWidget {
@@ -9,30 +11,47 @@ class LiveTrackingScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Map Placeholder
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.grey.shade200,
-            child: Stack(
-              children: [
-                Center(
-                  child: Icon(Icons.map, size: 64, color: Colors.grey.shade400),
-                ),
-                // Simulated map logic - lines/paths could be drawn here with CustomPaint if needed for polish
-                // For now, just a placeholder image or basic markers
-                Positioned(
-                  top: 200,
-                  left: 100,
-                  child: _buildMapMarker(Icons.home, AppColors.primary),
-                ),
-                Positioned(
-                  top: 350,
-                  right: 120,
-                  child: _buildMapMarker(Icons.local_shipping, AppColors.textPrimary),
-                ),
-              ],
+          // Interactive Map
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: const LatLng(-1.2921, 36.8219), // Nairobi
+              initialZoom: 13.0,
             ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.globalcoolers.app',
+              ),
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: const [
+                      LatLng(-1.2960, 36.8150),
+                      LatLng(-1.2940, 36.8180),
+                      LatLng(-1.2921, 36.8219),
+                    ],
+                    strokeWidth: 4.0,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: const LatLng(-1.2921, 36.8219), // User Home
+                    width: 50,
+                    height: 50,
+                    child: _buildMapMarker(Icons.home, AppColors.primary),
+                  ),
+                  Marker(
+                    point: const LatLng(-1.2960, 36.8150), // Truck Location
+                    width: 50,
+                    height: 50,
+                    child: _buildMapMarker(Icons.local_shipping, AppColors.textPrimary),
+                  ),
+                ],
+              ),
+            ],
           ),
           
           // Back Button

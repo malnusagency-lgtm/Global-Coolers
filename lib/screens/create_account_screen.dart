@@ -11,6 +11,10 @@ class CreateAccountScreen extends StatefulWidget {
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isPhone = true;
   int _selectedRoleIndex = 0; // 0: Household, 1: Collector, 2: Admin
+  bool _isLoading = false;
+  
+  final _formKey = GlobalKey<FormState>();
+  final _contactController = TextEditingController();
 
   final List<Map<String, dynamic>> _roles = [
     {
@@ -41,11 +45,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         title: const Text('Create Account'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const Text(
                 'Join Nairobi\'s waste\nmanagement\ncommunity.',
                 style: TextStyle(
@@ -115,23 +121,35 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: TextFormField(
+                        controller: _contactController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           hintText: '7XX XXX XXX',
                           hintStyle: TextStyle(color: Colors.grey.shade400),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Enter phone number';
+                          if (value.length < 9) return 'Invalid phone number';
+                          return null;
+                        },
                       ),
                     ),
                   ],
                 )
               else
-                TextField(
+                TextFormField(
+                  controller: _contactController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'name@example.com',
                     hintStyle: TextStyle(color: Colors.grey.shade400),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Enter email address';
+                    if (!value.contains('@')) return 'Invalid email address';
+                    return null;
+                  },
                 ),
 
               const SizedBox(height: 32),
@@ -243,17 +261,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Based on role, navigate to different dashboards
-                    // For now, default to resident home
-                    String route = '/home';
-                    if (_selectedRoleIndex == 1) route = '/collector-dashboard';
-                    if (_selectedRoleIndex == 2) route = '/admin-dashboard';
-                    
-                    // For prototype, we'll just push home for now or specific if built
-                    Navigator.pushNamed(context, route);
+                  onPressed: _isLoading ? null : () async {
+                    if (_formKey.currentState!.validate()) {
+                      setState(() => _isLoading = true);
+                      
+                      // Simulate network request
+                      await Future.delayed(const Duration(seconds: 1));
+                      if (!mounted) return;
+                      
+                      String route = '/home';
+                      if (_selectedRoleIndex == 1) route = '/collector-dashboard';
+                      if (_selectedRoleIndex == 2) route = '/admin-dashboard';
+                      
+                      Navigator.pushNamed(context, route);
+                    }
                   },
-                  child: const Text('Continue'),
+                  child: _isLoading 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Continue'),
                 ),
               ),
               

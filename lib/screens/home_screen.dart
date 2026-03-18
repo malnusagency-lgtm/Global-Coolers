@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../providers/user_provider.dart';
 import '../widgets/impact_card.dart';
 import '../widgets/action_card.dart';
 import '../widgets/activity_item.dart';
@@ -30,6 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+
+    if (userProvider.isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -53,9 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Habari, Wanjiku!',
-                        style: TextStyle(
+                      Text(
+                        'Habari, ${userProvider.userName}!',
+                        style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -88,8 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
               
               // Impact Card
               ImpactCard(
-                points: 1250,
-                co2Saved: 12,
+                points: userProvider.ecoPoints,
+                co2Saved: 12, // Could also come from provider later
                 onTap: () => Navigator.pushNamed(context, '/impact-stats'),
               ),
               

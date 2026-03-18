@@ -10,6 +10,11 @@ class ReportIssueScreen extends StatefulWidget {
 
 class _ReportIssueScreenState extends State<ReportIssueScreen> {
   String? _selectedIssueType;
+  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final _locationController = TextEditingController();
+  final _descController = TextEditingController();
+
   final List<String> _issueTypes = [
     'Illegal Dumping',
     'Overflowing Bin',
@@ -29,11 +34,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         title: const Text('Report Issue'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Photo Upload Area
               Container(
                 height: 200,
@@ -123,15 +130,22 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              TextFormField(
+                controller: _locationController,
                 decoration: InputDecoration(
                   hintText: 'Detecting location...',
                   prefixIcon: const Icon(Icons.location_on, color: AppColors.primary),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.my_location),
-                    onPressed: () {},
+                    onPressed: () {
+                      _locationController.text = 'Kilimani, Nairobi';
+                    },
                   ),
                 ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Location is required';
+                  return null;
+                },
               ),
               
               const SizedBox(height: 24),
@@ -145,12 +159,17 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              TextFormField(
+                controller: _descController,
                 maxLines: 4,
                 decoration: InputDecoration(
                   hintText: 'Describe the issue...',
                   hintStyle: TextStyle(color: Colors.grey.shade400),
                 ),
+                validator: (val) {
+                  if (val == null || val.length < 5) return 'Please provide more details';
+                  return null;
+                },
               ),
               
               const SizedBox(height: 32),
@@ -158,17 +177,31 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Submit logic
-                    Navigator.pop(context); // Go back home
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Report submitted successfully!'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
+                  onPressed: _isLoading ? null : () async {
+                    if (_selectedIssueType == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please select an issue type'), backgroundColor: Colors.red),
+                      );
+                      return;
+                    }
+
+                    if (_formKey.currentState!.validate()) {
+                      setState(() => _isLoading = true);
+                      await Future.delayed(const Duration(seconds: 1)); // Mock Network
+                      if (!mounted) return;
+
+                      Navigator.pop(context); // Go back
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Report submitted successfully!'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    }
                   },
-                  child: const Text('Submit Report'),
+                  child: _isLoading
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Submit Report'),
                 ),
               ),
             ],

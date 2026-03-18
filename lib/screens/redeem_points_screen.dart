@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../providers/user_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class RedeemPointsScreen extends StatefulWidget {
@@ -31,36 +33,36 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Balance Card
-            Container(
-              margin: const EdgeInsets.all(24),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('YOUR BALANCE', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text('1,250', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(width: 8),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text('Eco-Points', style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+              // Balance Card
+              Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('YOUR BALANCE', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('${context.watch<UserProvider>().ecoPoints}', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(width: 8),
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 6),
+                              child: Text('Eco-Points', style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -173,12 +175,12 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.7,
                 children: [
-                  _buildProductCard('100 KES Airtime', 'Safaricom / Airtel', 500, AppColors.primary, true),
-                  _buildProductCard('10% Off Refill', 'K-Gas 6kg Cylinder', 1000, Colors.red, true),
-                  _buildProductCard('Shopping Voucher', 'Naivas Supermarket', 2500, Colors.orange, false),
-                  _buildProductCard('Free Coffee', 'Java House', 300, AppColors.primary, true),
-                  _buildProductCard('Donate a Tree', 'Karura Forest', 150, AppColors.primary, true),
-                  _buildProductCard('Eco Tote Bag', 'Made in Kibera', 800, AppColors.primary, true),
+                  _buildProductCard(context, '100 KES Airtime', 'Safaricom / Airtel', 500),
+                  _buildProductCard(context, '10% Off Refill', 'K-Gas 6kg Cylinder', 1000),
+                  _buildProductCard(context, 'Shopping Voucher', 'Naivas Supermarket', 2500),
+                  _buildProductCard(context, 'Free Coffee', 'Java House', 300),
+                  _buildProductCard(context, 'Donate a Tree', 'Karura Forest', 150),
+                  _buildProductCard(context, 'Eco Tote Bag', 'Made in Kibera', 800),
                 ],
               ),
             ),
@@ -198,7 +200,10 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
     );
   }
 
-  Widget _buildProductCard(String name, String subtitle, int points, Color accentColor, bool canRedeem) {
+  Widget _buildProductCard(BuildContext context, String name, String subtitle, int points) {
+    final currentPoints = context.watch<UserProvider>().ecoPoints;
+    final canRedeem = currentPoints >= points;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -237,17 +242,29 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
                 Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text(subtitle, style: TextStyle(color: AppColors.textSecondary, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 10),
+                const Spacer(),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: canRedeem ? () {} : null,
+                    onPressed: canRedeem ? () async {
+                      // Show loading or disable buttons during redemption
+                      final scaffoldMsg = ScaffoldMessenger.of(context);
+                      scaffoldMsg.showSnackBar(const SnackBar(content: Text('Processing redemption...'), duration: Duration(seconds: 1)));
+                      
+                      final success = await context.read<UserProvider>().redeemPoints(points);
+                      if (success) {
+                        scaffoldMsg.showSnackBar(const SnackBar(content: Text('Reward redeemed successfully!'), backgroundColor: AppColors.success));
+                      } else {
+                        scaffoldMsg.showSnackBar(const SnackBar(content: Text('Failed to redeem reward.'), backgroundColor: Colors.red));
+                      }
+                    } : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: canRedeem ? AppColors.primary : Colors.grey.shade200,
                       foregroundColor: canRedeem ? Colors.white : AppColors.textSecondary,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 0,
                     ),
                     child: Text(canRedeem ? 'Redeem' : 'Low Balance'),
                   ),

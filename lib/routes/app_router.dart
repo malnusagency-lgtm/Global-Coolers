@@ -14,14 +14,15 @@ import '../screens/profile_settings_screen.dart';
 import '../screens/redeem_points_screen.dart';
 import '../screens/leaderboard_screen.dart';
 import '../screens/pickup_complete_screen.dart';
-import '../screens/community_challenges_screen.dart';
-import '../screens/impact_stats_screen.dart';
 import '../screens/support_screen.dart';
+import '../screens/landing_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case '/':
+        return MaterialPageRoute(builder: (_) => const LandingScreen());
+      case '/splash':
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case '/create-account':
         return MaterialPageRoute(builder: (_) => const CreateAccountScreen());

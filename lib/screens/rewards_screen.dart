@@ -1,0 +1,212 @@
+import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+import '../widgets/badge_item.dart';
+import '../widgets/reward_item.dart';
+import '../widgets/bottom_nav_bar.dart';
+
+class RewardsScreen extends StatefulWidget {
+  const RewardsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<RewardsScreen> createState() => _RewardsScreenState();
+}
+
+class _RewardsScreenState extends State<RewardsScreen> {
+  int _currentIndex = 2; // Wallet/Rewards tab
+
+  void _onNavTap(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 0) Navigator.pushNamed(context, '/home');
+    if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
+    if (index == 3) Navigator.pushNamed(context, '/profile');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Rewards & Impact'),
+        automaticallyImplyLeading: false, // Managed by bottom nav
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Points Balance Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.accent, AppColors.primary], // Lighter gradient
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'GREEN POINTS BALANCE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '1,250',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/redeem-points');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Redeem Points'),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Badges & Achievements
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Your Badges',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {},
+                    child: const Text(
+                      'See All',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: const [
+                    BadgeItem(
+                      title: 'Eco Warrior',
+                      icon: Icons.shield,
+                      color: AppColors.primary,
+                    ),
+                    SizedBox(width: 16),
+                    BadgeItem(
+                      title: 'Top Recycler',
+                      icon: Icons.recycling,
+                      color: AppColors.info,
+                    ),
+                    SizedBox(width: 16),
+                    BadgeItem(
+                      title: 'Community',
+                      icon: Icons.people,
+                      color: AppColors.warning,
+                      isLocked: true,
+                    ),
+                    SizedBox(width: 16),
+                    BadgeItem(
+                      title: 'Super Saver',
+                      icon: Icons.savings,
+                      color: AppColors.success,
+                      isLocked: true,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Redeem
+              const Text(
+                'Rewards for You',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    RewardItem(
+                      title: '50% Off Trash Bags',
+                      subtitle: 'Get eco-friendly bags',
+                      points: 500,
+                      imageAsset: '', // Placeholder
+                      onRedeem: () {},
+                      canAfford: true,
+                    ),
+                    RewardItem(
+                      title: 'Free Coffee',
+                      subtitle: 'At Java House',
+                      points: 2000,
+                      imageAsset: '',
+                      onRedeem: () {},
+                      canAfford: false, // 1250 < 2000
+                    ),
+                    RewardItem(
+                      title: 'Cinema Ticket',
+                      subtitle: 'IMAX Garden City',
+                      points: 1500,
+                      imageAsset: '',
+                      onRedeem: () {},
+                      canAfford: false,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 80),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+}

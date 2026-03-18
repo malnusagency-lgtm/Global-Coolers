@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'package:provider/provider.dart';
+import '../providers/locale_provider.dart';
+import '../utils/app_localizations.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({Key? key}) : super(key: key);
@@ -11,7 +14,6 @@ class ProfileSettingsScreen extends StatefulWidget {
 
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   int _currentIndex = 3; // Account tab
-  bool _isEnglish = true;
 
   void _onNavTap(int index) {
     setState(() => _currentIndex = index);
@@ -22,6 +24,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final l10n = AppLocalizations.of(context);
+    final isEnglish = localeProvider.locale.languageCode == 'en';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -117,16 +123,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     Row(
                       children: [
                         Text(
-                          _isEnglish ? 'English' : 'Kiswahili',
+                          isEnglish ? 'English' : 'Kiswahili',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                           ),
                         ),
                         Switch(
-                          value: _isEnglish,
+                          value: isEnglish,
                           onChanged: (val) {
-                            setState(() => _isEnglish = val);
+                            localeProvider.toggleLocale();
                           },
                           activeColor: AppColors.primary,
                         ),
@@ -149,15 +155,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               
               const SizedBox(height: 16),
               
-              _buildSettingItem('Edit Profile', Icons.person_outline, () {}),
-              _buildSettingItem('My Address', Icons.location_on_outlined, () {}),
-              _buildSettingItem('Payment Methods', Icons.credit_card, () {}),
-              _buildSettingItem('Notifications', Icons.notifications_none, () {}),
+              _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline, () {}),
+              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, () {}),
+              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card, () {}),
+              _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none, () {}),
               
               const SizedBox(height: 24),
-              const Text(
-                'Support',
-                style: TextStyle(
+              Text(
+                l10n.translate('help_support'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
@@ -165,11 +171,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
               const SizedBox(height: 16),
               
-              _buildSettingItem('Help & Support', Icons.help_outline, () {
+              _buildSettingItem(l10n.translate('help_support'), Icons.help_outline, () {
                  Navigator.pushNamed(context, '/support');
               }),
-              _buildSettingItem('Privacy Policy', Icons.lock_outline, () {}),
-              _buildSettingItem('Log Out', Icons.logout, () {
+              _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline, () {}),
+              _buildSettingItem(l10n.translate('log_out'), Icons.logout, () {
                 Navigator.pushReplacementNamed(context, '/'); // Back to Splash for demo
               }, isDestructive: true),
               

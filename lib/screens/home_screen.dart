@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
-import '../widgets/impact_card.dart';
-import '../widgets/action_card.dart';
+import '../utils/app_localizations.dart';
 import '../widgets/activity_item.dart';
 import '../widgets/bottom_nav_bar.dart';
 
@@ -30,14 +29,46 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 3) Navigator.pushNamed(context, '/profile');
   }
 
+  // Helper method for action cards
+  Widget _buildActionCard(BuildContext context, String title, IconData icon, Color color, String route) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => Navigator.pushNamed(context, route),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 30),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
+    final l10n = AppLocalizations.of(context);
 
     if (userProvider.isLoading) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
@@ -45,129 +76,46 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Welcome back,',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.translate('welcome'),
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Habari, ${userProvider.userName}!',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
+                        Text(
+                          userProvider.userName,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded),
-                      onPressed: () => Navigator.pushNamed(context, '/notifications'),
-                      color: AppColors.textPrimary,
+                    const CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=muthoni'),
                     ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Impact Card
-              ImpactCard(
-                points: userProvider.ecoPoints,
-                co2Saved: 12, // Could also come from provider later
-                onTap: () => Navigator.pushNamed(context, '/impact-stats'),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Quick Actions
-              const Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  ActionCard(
-                    title: 'Schedule Pickup',
-                    subtitle: 'Next: Tue, 12th',
-                    icon: Icons.calendar_today_rounded,
-                    color: AppColors.primary,
-                    onTap: () => Navigator.pushNamed(context, '/schedule-pickup'),
-                  ),
-                  const SizedBox(width: 16),
-                  ActionCard(
-                    title: 'Report Issue',
-                    subtitle: 'Illegal dumping?',
-                    icon: Icons.campaign_rounded,
-                    color: AppColors.warning, // Orange/Warning color
-                    onTap: () => Navigator.pushNamed(context, '/report-issue'),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Track Collector Banner (Simulated as another action type or special card)
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/live-tracking'),
+
+              // Impact Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(24.0),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.blue.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.local_shipping_rounded, color: Colors.blue),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Track Collector',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 color: AppColors.textPrimary,
                               ),

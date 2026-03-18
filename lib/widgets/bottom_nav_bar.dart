@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_localizations.dart';
 
 enum UserRole { resident, collector, admin }
 
@@ -15,27 +16,28 @@ class BottomNavBar extends StatelessWidget {
     this.role = UserRole.resident,
   }) : super(key: key);
 
-  List<_NavItem> get _items {
+  List<_NavItem> _items(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     switch (role) {
       case UserRole.resident:
         return [
-          _NavItem(Icons.home_rounded, 'Home'),
-          _NavItem(Icons.calendar_today_rounded, 'Schedule'),
-          _NavItem(Icons.account_balance_wallet_rounded, 'Wallet'),
-          _NavItem(Icons.person_rounded, 'Account'),
+          _NavItem(Icons.home_rounded, l10n.translate('nyumbani')),
+          _NavItem(Icons.calendar_today_rounded, l10n.translate('ratiba')),
+          _NavItem(Icons.account_balance_wallet_rounded, l10n.translate('tuzo')),
+          _NavItem(Icons.person_rounded, l10n.translate('akaunti')),
         ];
       case UserRole.collector:
         return [
-          _NavItem(Icons.map_rounded, 'Route'),
-          _NavItem(Icons.history_rounded, 'History'),
-          _NavItem(Icons.person_rounded, 'Profile'),
+          _NavItem(Icons.map_rounded, l10n.translate('njia')),
+          _NavItem(Icons.history_rounded, l10n.translate('historia')),
+          _NavItem(Icons.person_rounded, l10n.translate('akaunti')),
         ];
       case UserRole.admin:
         return [
-          _NavItem(Icons.home_rounded, 'Home'),
-          _NavItem(Icons.bar_chart_rounded, 'Analytics'),
-          _NavItem(Icons.map_rounded, 'Map'),
-          _NavItem(Icons.settings_rounded, 'Settings'),
+          _NavItem(Icons.home_rounded, l10n.translate('nyumbani')),
+          _NavItem(Icons.bar_chart_rounded, l10n.translate('uchambuzi')),
+          _NavItem(Icons.map_rounded, l10n.translate('ramani')),
+          _NavItem(Icons.settings_rounded, l10n.translate('mipangilio')),
         ];
     }
   }
@@ -58,8 +60,8 @@ class BottomNavBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (index) {
-              return _buildNavItem(index, _items[index].icon, _items[index].label);
+            children: List.generate(_items(context).length, (index) {
+              return _buildNavItem(index, _items(context)[index].icon, _items(context)[index].label);
             }),
           ),
         ),

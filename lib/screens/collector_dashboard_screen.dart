@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/supabase_service.dart';
+import 'package:latlong2/latlong.dart';
 
 class CollectorDashboardScreen extends StatefulWidget {
   const CollectorDashboardScreen({Key? key}) : super(key: key);
@@ -12,6 +14,40 @@ class CollectorDashboardScreen extends StatefulWidget {
 class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
   bool _isOnDuty = true;
   int _currentNavIndex = 0;
+  Timer? _locationTimer;
+  final SupabaseService _supabaseService = SupabaseService();
+  LatLng _currentLocation = const LatLng(-1.2960, 36.8150);
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isOnDuty) _startLocationSimulation();
+  }
+
+  void _startLocationSimulation() {
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (!_isOnDuty) return;
+      
+      // Simulate slight movement towards Nairobi center
+      setState(() {
+        _currentLocation = LatLng(
+          _currentLocation.latitude + 0.0001,
+          _currentLocation.longitude + 0.0001,
+        );
+      });
+      
+      _supabaseService.updateLocation(
+        _currentLocation.latitude,
+        _currentLocation.longitude,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +131,14 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
                     Switch(
                       value: _isOnDuty,
                       onChanged: (value) {
-                        setState(() => _isOnDuty = value);
+                        setState(() {
+                          _isOnDuty = value;
+                          if (_isOnDuty) {
+                            _startLocationSimulation();
+                          } else {
+                            _locationTimer?.cancel();
+                          }
+                        });
                       },
                       activeColor: AppColors.success,
                     ),

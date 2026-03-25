@@ -1,50 +1,78 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme/app_colors.dart';
+import '../services/supabase_service.dart';
 
-class LiveTrackingScreen extends StatelessWidget {
+class LiveTrackingScreen extends StatefulWidget {
   const LiveTrackingScreen({Key? key}) : super(key: key);
+
+  @override
+  State<LiveTrackingScreen> createState() => _LiveTrackingScreenState();
+}
+
+class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
+  LatLng _collectorLocation = const LatLng(-1.2960, 36.8150);
+  final LatLng _userLocation = const LatLng(-1.2921, 36.8219);
+  StreamSubscription? _locationSubscription;
+  final SupabaseService _supabaseService = SupabaseService();
+  String _eta = '12 mins';
+
+  @override
+  void initState() {
+    super.initState();
+    _startTracking();
+  }
+
+  void _startTracking() {
+    // In a real app, we'd pass the collectorId to track. 
+    // Here we'll listen for any collector updates or a specific demo ID.
+    _locationSubscription = _supabaseService.streamLocation('DEMO_COLLECTOR_ID').listen((data) {
+      if (data.isNotEmpty) {
+        final profile = data.first;
+        if (profile['latitude'] != null && profile['longitude'] != null) {
+          setState(() {
+            _collectorLocation = LatLng(profile['latitude'], profile['longitude']);
+            // Simple ETA calculation mockup
+            _eta = '8 mins'; 
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Interactive Map
           FlutterMap(
             options: MapOptions(
-              initialCenter: const LatLng(-1.2921, 36.8219), // Nairobi
-              initialZoom: 13.0,
+              initialCenter: _userLocation,
+              initialZoom: 14.0,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.globalcoolers.app',
               ),
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: const [
-                      LatLng(-1.2960, 36.8150),
-                      LatLng(-1.2940, 36.8180),
-                      LatLng(-1.2921, 36.8219),
-                    ],
-                    strokeWidth: 4.0,
-                    color: AppColors.primary,
-                  ),
-                ],
-              ),
               MarkerLayer(
                 markers: [
                   Marker(
-                    point: const LatLng(-1.2921, 36.8219), // User Home
+                    point: _userLocation,
                     width: 50,
                     height: 50,
                     child: _buildMapMarker(Icons.home, AppColors.primary),
                   ),
                   Marker(
-                    point: const LatLng(-1.2960, 36.8150), // Truck Location
+                    point: _collectorLocation,
                     width: 50,
                     height: 50,
                     child: _buildMapMarker(Icons.local_shipping, AppColors.textPrimary),
@@ -54,7 +82,6 @@ class LiveTrackingScreen extends StatelessWidget {
             ],
           ),
           
-          // Back Button
           Positioned(
             top: 50,
             left: 20,
@@ -67,7 +94,6 @@ class LiveTrackingScreen extends StatelessWidget {
             ),
           ),
           
-          // Bottom Sheet
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -77,142 +103,53 @@ class LiveTrackingScreen extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Handle
                   Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                    child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
                   ),
                   const SizedBox(height: 24),
-                  
-                  // Status & ETA
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Arriving in',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
+                          const Text('Arriving in', style: TextStyle(color: AppColors.textSecondary)),
                           const SizedBox(height: 4),
-                          Text(
-                            '12 mins',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
+                          Text(_eta, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
                         ],
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'On route',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                        child: const Text('On route', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 24),
-                  
-                  // Driver Info
                   Row(
                     children: [
-                      const CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.grey,
-                        // backgroundImage: AssetImage('assets/driver.jpg'), 
-                        child: Icon(Icons.person, color: Colors.white),
-                      ),
+                      const CircleAvatar(radius: 24, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
                       const SizedBox(width: 16),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'John Kamau',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Icon(Icons.star, size: 14, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '4.8',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  '•  KBZ 123A',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            Text('John Kamau', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
+                            Text('4.8 ★ • KBZ 123A', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
-                      
-                      // Call Button
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.white),
-                          onPressed: () {},
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                       // Message Button
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.message, color: Colors.white),
-                          onPressed: () {},
-                        ),
-                      ),
+                      _buildActionButton(Icons.phone, AppColors.success),
+                      const SizedBox(width: 12),
+                      _buildActionButton(Icons.message, AppColors.primary),
                     ],
                   ),
                 ],
@@ -224,22 +161,23 @@ class LiveTrackingScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildActionButton(IconData icon, Color color) {
+    return Container(
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: IconButton(icon: Icon(icon, color: Colors.white, size: 20), onPressed: () {}),
+    );
+  }
+
   Widget _buildMapMarker(IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))],
         border: Border.all(color: color, width: 3),
       ),
-      child: Icon(icon, color: color, size: 24),
+      child: Icon(icon, color: color, size: 20),
     );
   }
 }

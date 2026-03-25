@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/supabase_service.dart';
+import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -10,8 +13,15 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  int _selectedToggle = 0; // 0=Individuals, 1=Neighborhoods
-  int _selectedPeriod = 0; // 0=This Week, 1=This Month, 2=All Time
+  int _selectedToggle = 0; 
+  int _selectedPeriod = 0; 
+  late Future<List<dynamic>> _leaderboardFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _leaderboardFuture = SupabaseService().getLeaderboard();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,79 +70,104 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
           const SizedBox(height: 20),
 
-          // Podium
-          SizedBox(
-            height: 250,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+          FutureBuilder<List<dynamic>>(
+            future: _leaderboardFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Expanded(child: Center(child: CircularProgressIndicator()));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Expanded(child: Center(child: Text('No data found')));
+              }
+
+              final users = snapshot.data!;
+              final top3 = users.take(3).toList();
+              final others = users.skip(3).toList();
+
+              return Expanded(
+                child: Column(
                   children: [
-                    // 2nd Place
-                    _buildPodiumItem('Juma', '98kg', 2, 120, Colors.grey.shade200),
-                    const SizedBox(width: 8),
-                    // 1st Place
-                    _buildPodiumItem('Wangari', '124kg', 1, 170, AppColors.primary.withValues(alpha: 0.15)),
-                    const SizedBox(width: 8),
-                    // 3rd Place
-                    _buildPodiumItem('Achieng', '85kg', 3, 90, Colors.orange.withValues(alpha: 0.15)),
+                    // Podium
+                    SizedBox(
+                      height: 250,
+                      child: Stack(
+                        alignment: Alignment.bottomCenter,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              // 2nd Place
+                              if (top3.length > 1) 
+                                _buildPodiumItem(top3[1]['full_name'] ?? 'Alt', '${top3[1]['co2_saved']}kg', 2, 120, Colors.grey.shade200),
+                              const SizedBox(width: 8),
+                              // 1st Place
+                              if (top3.isNotEmpty)
+                                _buildPodiumItem(top3[0]['full_name'] ?? 'Winner', '${top3[0]['co2_saved']}kg', 1, 170, AppColors.primary.withOpacity(0.15)),
+                              const SizedBox(width: 8),
+                              // 3rd Place
+                              if (top3.length > 2)
+                                _buildPodiumItem(top3[2]['full_name'] ?? 'Alt', '${top3[2]['co2_saved']}kg', 3, 90, Colors.orange.withOpacity(0.15)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Ranked List
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        itemCount: others.length,
+                        itemBuilder: (context, index) {
+                          final user = others[index];
+                          return _buildRankItem(index + 4, user['full_name'] ?? 'Guest', 'Nairobi', '${user['co2_saved']}kg');
+                        },
+                      ),
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Ranked List
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              children: [
-                _buildRankItem(4, 'Kamau N.', 'Westlands', '72kg'),
-                _buildRankItem(5, 'David O.', 'Kilimani', '68kg'),
-                _buildRankItem(6, 'Sarah M.', 'Karen', '65kg'),
-                _buildRankItem(7, 'Kevin K.', 'Langata', '61kg'),
-                const SizedBox(height: 60),
-              ],
-            ),
+              );
+            },
           ),
 
           // "You" Sticky Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A2E1A),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Row(
-              children: [
-                const Text('12', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(width: 16),
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.3),
-                  child: const Icon(Icons.person, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('You', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('Keep going!', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                  ],
-                ),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: const [
-                    Text('42kg', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
-                    Text('CO2 Saved', style: TextStyle(color: Colors.white60, fontSize: 11)),
-                  ],
-                ),
-              ],
+          Consumer<UserProvider>(
+            builder: (context, userProvider, _) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A2E1A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  const Text('-', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(width: 16),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppColors.primary.withOpacity(0.3),
+                    child: const Icon(Icons.person, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(userProvider.userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('Keep going!', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                    ],
+                  ),
+                  const Spacer(),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${userProvider.totalWasteDiverted}kg', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
+                      const Text('CO2 Saved', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

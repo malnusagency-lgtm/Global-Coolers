@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/supabase_service.dart';
 
 class CommunityChallengesScreen extends StatefulWidget {
   const CommunityChallengesScreen({Key? key}) : super(key: key);
@@ -11,6 +13,7 @@ class CommunityChallengesScreen extends StatefulWidget {
 
 class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
   int _selectedTab = 0;
+  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   Widget build(BuildContext context) {
@@ -44,19 +47,21 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.eco, color: AppColors.primary, size: 18),
-                              const SizedBox(width: 4),
-                              const Text('1,250', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ],
+                        Consumer<UserProvider>(
+                          builder: (context, userProvider, _) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.eco, color: AppColors.primary, size: 18),
+                                const SizedBox(width: 4),
+                                Text('${userProvider.ecoPoints}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              ],
+                            ),
                           ),
                         ),
                       ],

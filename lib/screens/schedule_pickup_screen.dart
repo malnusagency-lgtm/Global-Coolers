@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
 
@@ -11,9 +13,24 @@ class SchedulePickupScreen extends StatefulWidget {
 
 class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   int _selectedCategoryIndex = 0;
-  int _selectedDateIndex = 1; // Default to 'Tomorrow' or specific date
-  int _selectedTimeSlot = 1; // Default to 'Afternoon'
+  int _selectedDateIndex = 1; 
+  int _selectedTimeSlot = 1; 
   bool _isLoading = false;
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Organic', 'icon': Icons.compost, 'color': AppColors.organic},
@@ -252,6 +269,46 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 32),
+                    
+                    // Image Upload Section
+                    const Text(
+                      'Waste Photo (Recommended)',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: _imageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(_imageFile!, fit: BoxFit.cover),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.camera_alt_outlined, size: 40, color: AppColors.primary),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Take a photo of the waste',
+                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -267,16 +324,26 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                     setState(() => _isLoading = true);
                     
                     try {
+                      String? photoUrl;
+                      if (_imageFile != null) {
+                        photoUrl = await SupabaseService().uploadWastePhoto(_imageFile!);
+                      }
+
                       final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
-                      // In a real app we would pass real dates/addresses from inputs, here we use mock
                       await SupabaseService().schedulePickup(
-                        'Today, 2:00 PM', // Simplified date for now
-                        categoryName, 
-                        'Plot 45, Kilimani Estate, Nairobi',
+                        date: 'Today, 2:00 PM', 
+                        wasteType: categoryName, 
+                        address: 'Plot 45, Kilimani Estate, Nairobi',
+                        photoUrl: photoUrl,
                       );
                       
                       if (!mounted) return;
-                      Navigator.pushNamed(context, '/pickup-complete'); // Flow to complete
+                      // Fetch the created pickup to get the QR code (Supabase returns it by default or we can let Supabase generate it)
+                      // For now, we'll assume the UUID is generated and we can pass a dummy or fetch it
+                      Navigator.pushNamed(context, '/pickup-confirmation', arguments: {
+                        'qrCode': 'PICKUP_${DateTime.now().millisecondsSinceEpoch}',
+                        'wasteType': categoryName,
+                      }); 
                     } catch (e) {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

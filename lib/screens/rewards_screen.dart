@@ -1,6 +1,6 @@
 import '../widgets/reward_item.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -169,7 +169,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               const SizedBox(height: 16),
               
               FutureBuilder<List<dynamic>>(
-                future: ApiService().fetchRewards(),
+                future: SupabaseService().getRewards(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_colors.dart';
 
 class CreateAccountScreen extends StatefulWidget {
@@ -10,11 +11,13 @@ class CreateAccountScreen extends StatefulWidget {
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isPhone = true;
-  int _selectedRoleIndex = 0; // 0: Household, 1: Collector, 2: Admin
+  int _selectedRoleIndex = 0; // 0: Household, 1: Collector
   bool _isLoading = false;
   
   final _formKey = GlobalKey<FormState>();
   final _contactController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
 
   final List<Map<String, dynamic>> _roles = [
     {
@@ -26,11 +29,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       'title': 'Collector / Driver',
       'subtitle': 'Pick up scheduled waste',
       'icon': Icons.local_shipping,
-    },
-    {
-      'title': 'Admin',
-      'subtitle': 'Manage waste operations',
-      'icon': Icons.admin_panel_settings,
     },
   ];
 
@@ -145,12 +143,55 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     hintText: 'name@example.com',
                     hintStyle: TextStyle(color: Colors.grey.shade400),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Enter email address';
                     if (!value.contains('@')) return 'Invalid email address';
                     return null;
                   },
                 ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'Full Name',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Muthoni N.',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                ),
+                validator: (value) => value!.isEmpty ? 'Enter your name' : null,
+              ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'Password',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: '********',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Enter password';
+                  if (value.length < 6) return 'Minimum 6 characters';
+                  return null;
+                },
+              ),
 
               const SizedBox(height: 32),
 
@@ -265,15 +306,42 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isLoading = true);
                       
-                      // Simulate network request
-                      await Future.delayed(const Duration(seconds: 1));
-                      if (!mounted) return;
-                      
-                      String route = '/home';
-                      if (_selectedRoleIndex == 1) route = '/collector-dashboard';
-                      if (_selectedRoleIndex == 2) route = '/admin-analytics';
-                      
-                      Navigator.pushNamed(context, route);
+                      try {
+                        final supabase = Supabase.instance.client;
+                        final String email = _isPhone 
+                          ? '${_contactController.text.trim()}@phone.local' // Supabase phone auth requires setup, using proxy for now or user can provide email
+                          : _contactController.text.trim();
+                        
+                        final response = await supabase.auth.signUp(
+                          email: email,
+                          password: _passwordController.text.trim(),
+                        );
+
+                        if (response.user != null) {
+                          // Insert into profiles
+                          await supabase.from('profiles').insert({
+                            'id': response.user!.id,
+                            'full_name': _nameController.text.trim(),
+                            'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
+                            'eco_points': 500, // Starting points
+                            'co2_saved': 0,
+                          });
+
+                          if (!mounted) return;
+                          
+                          String route = '/home';
+                          if (_selectedRoleIndex == 1) route = '/collector-dashboard';
+                          
+                          Navigator.pushNamed(context, route);
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _isLoading = false);
+                      }
                     }
                   },
                   child: _isLoading 

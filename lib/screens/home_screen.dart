@@ -6,7 +6,7 @@ import '../utils/app_localizations.dart';
 import '../widgets/activity_item.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/impact_card.dart';
-import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _pickupsFuture = ApiService().fetchPickups();
+    _pickupsFuture = SupabaseService().getPickups();
   }
 
   void _onNavTap(int index) {

@@ -8,7 +8,6 @@ import '../screens/rewards_screen.dart';
 import '../screens/report_issue_screen.dart';
 import '../screens/waste_guide_screen.dart';
 import '../screens/collector_dashboard_screen.dart';
-import '../screens/admin_analytics_screen.dart';
 import '../screens/notification_center_screen.dart';
 import '../screens/profile_settings_screen.dart';
 import '../screens/redeem_points_screen.dart';
@@ -42,8 +41,7 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const WasteGuideScreen());
       case '/collector-dashboard':
         return MaterialPageRoute(builder: (_) => const CollectorDashboardScreen());
-      case '/admin-analytics':
-        return MaterialPageRoute(builder: (_) => const AdminAnalyticsScreen());
+
       case '/notifications':
         return MaterialPageRoute(builder: (_) => const NotificationCenterScreen());
       case '/profile':

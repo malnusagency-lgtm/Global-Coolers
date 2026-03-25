@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 
 class SchedulePickupScreen extends StatefulWidget {
   const SchedulePickupScreen({Key? key}) : super(key: key);
@@ -269,8 +269,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                     try {
                       final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
                       // In a real app we would pass real dates/addresses from inputs, here we use mock
-                      await ApiService().schedulePickup(
-                        'Scheduled', 
+                      await SupabaseService().schedulePickup(
+                        'Today, 2:00 PM', // Simplified date for now
                         categoryName, 
                         'Plot 45, Kilimani Estate, Nairobi',
                       );

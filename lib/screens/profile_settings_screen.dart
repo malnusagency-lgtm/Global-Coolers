@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
 
@@ -25,6 +26,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final localeProvider = context.watch<LocaleProvider>();
+    final userProvider = context.watch<UserProvider>();
     final l10n = AppLocalizations.of(context);
     final isEnglish = localeProvider.locale.languageCode == 'en';
 
@@ -69,16 +71,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Jane Wanjiku',
-                      style: TextStyle(
+                    Text(
+                      userProvider.userName.isEmpty ? 'Jane Wanjiku' : userProvider.userName,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     const Text(
-                      '+254 712 345 678',
+                      'Account Profile',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -175,8 +177,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                  Navigator.pushNamed(context, '/support');
               }),
               _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline, () {}),
-              _buildSettingItem(l10n.translate('log_out'), Icons.logout, () {
-                Navigator.pushReplacementNamed(context, '/'); // Back to Splash for demo
+              _buildSettingItem(l10n.translate('log_out'), Icons.logout, () async {
+                await userProvider.signOut();
+                if (!mounted) return;
+                Navigator.pushReplacementNamed(context, '/'); 
               }, isDestructive: true),
               
               const SizedBox(height: 80),

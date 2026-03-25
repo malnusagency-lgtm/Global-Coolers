@@ -1,14 +1,13 @@
-import 'package:flutter/foundation.dart';
-import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 
-enum AppRole { resident, collector, admin }
+enum AppRole { resident, collector }
 
 class UserProvider extends ChangeNotifier {
   String _userName = '';
   AppRole _role = AppRole.resident;
   int _ecoPoints = 0;
   int _totalWasteDiverted = 0;
-  final ApiService _apiService = ApiService();
+  final SupabaseService _supabaseService = SupabaseService();
   
   bool _isLoading = true;
 
@@ -28,21 +27,11 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _apiService.fetchProfile();
-      _userName = data['name'] ?? 'Muthoni N.';
-      _ecoPoints = data['ecoPoints'] ?? 0;
-      _totalWasteDiverted = data['co2Saved'] ?? 0;
-        
-        switch (data['role']) {
-          case 'collector':
-            _role = AppRole.collector;
-            break;
-          case 'admin':
-            _role = AppRole.admin;
-            break;
-          default:
-            _role = AppRole.resident;
-        }
+      final data = await _supabaseService.getProfile();
+      _userName = data['full_name'] ?? 'Guest';
+      _ecoPoints = data['eco_points'] ?? 0;
+      _totalWasteDiverted = data['co2_saved'] ?? 0;
+      _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
     } catch (e) {
       debugPrint('Error loading user profile: $e');
       // Fallbacks in case server isn't running yet
@@ -55,22 +44,25 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> redeemPoints(int cost) async {
-    if (_ecoPoints < cost) return false;
-
-    // For now, simulate backend call as the backend doesn't have a redeem route yet
-    // In a real scenario, we would call: await _apiService.redeemReward(cost);
-    final success = true; // Simulated success
-    if (success) {
-      _ecoPoints -= cost;
-      notifyListeners();
+    try {
+      await _supabaseService.redeemReward('REWARD_ID', cost);
+      await loadUserData();
       return true;
+    } catch (e) {
+      debugPrint('Redeem error: $e');
+      return false;
     }
-    return false;
-  }
 
   void addPoints(int amount) {
     _ecoPoints += amount;
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    await _supabaseService.signOut();
+    _userName = '';
+    _ecoPoints = 0;
+    _role = AppRole.resident;
     notifyListeners();
   }
 }

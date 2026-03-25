@@ -47,7 +47,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -61,7 +61,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: _isOnDuty ? AppColors.success.withOpacity(0.1) : Colors.grey.shade100,
+                            color: _isOnDuty ? AppColors.success.withValues(alpha: 0.1) : Colors.grey.shade100,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -199,7 +199,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -236,12 +236,12 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isNext ? AppColors.primary.withOpacity(0.05) : Colors.white,
+        color: isNext ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: isNext ? Border.all(color: AppColors.primary, width: 1.5) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

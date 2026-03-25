@@ -97,7 +97,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
                           gradient: LinearGradient(
-                            colors: [AppColors.primary, AppColors.primary.withOpacity(0.5)],
+                            colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.5)],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                           ),
@@ -238,7 +238,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Icon(

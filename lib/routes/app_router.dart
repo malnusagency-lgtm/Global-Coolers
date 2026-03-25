@@ -16,6 +16,8 @@ import '../screens/leaderboard_screen.dart';
 import '../screens/pickup_complete_screen.dart';
 import '../screens/support_screen.dart';
 import '../screens/landing_screen.dart';
+import '../screens/community_challenges_screen.dart';
+import '../screens/impact_stats_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
 
 class SchedulePickupScreen extends StatefulWidget {
   const SchedulePickupScreen({Key? key}) : super(key: key);
@@ -265,11 +266,25 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                   onPressed: _isLoading ? null : () async {
                     setState(() => _isLoading = true);
                     
-                    // Simulate network scheduling logic
-                    await Future.delayed(const Duration(seconds: 1));
-                    if (!mounted) return;
-
-                    Navigator.pushNamed(context, '/pickup-complete'); // Flow to complete
+                    try {
+                      final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
+                      // In a real app we would pass real dates/addresses from inputs, here we use mock
+                      await ApiService().schedulePickup(
+                        'Scheduled', 
+                        categoryName, 
+                        'Plot 45, Kilimani Estate, Nairobi',
+                      );
+                      
+                      if (!mounted) return;
+                      Navigator.pushNamed(context, '/pickup-complete'); // Flow to complete
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to schedule: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isLoading = false);
+                    }
                   },
                   child: _isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))

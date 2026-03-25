@@ -271,7 +271,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       
                       String route = '/home';
                       if (_selectedRoleIndex == 1) route = '/collector-dashboard';
-                      if (_selectedRoleIndex == 2) route = '/admin-dashboard';
+                      if (_selectedRoleIndex == 2) route = '/admin-analytics';
                       
                       Navigator.pushNamed(context, route);
                     }
@@ -308,8 +308,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildToggleOption(String title, bool isSelected, VoidCallback onTap) {
     return Expanded(

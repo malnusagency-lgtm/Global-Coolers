@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../widgets/badge_item.dart';
 import '../widgets/reward_item.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/api_service.dart';
+import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({Key? key}) : super(key: key);
@@ -23,6 +23,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -66,9 +68,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '1,250',
-                      style: TextStyle(
+                    Text(
+                      userProvider.ecoPoints.toString(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
@@ -166,36 +168,37 @@ class _RewardsScreenState extends State<RewardsScreen> {
               ),
               const SizedBox(height: 16),
               
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    RewardItem(
-                      title: '50% Off Trash Bags',
-                      subtitle: 'Get eco-friendly bags',
-                      points: 500,
-                      imageAsset: '', // Placeholder
-                      onRedeem: () {},
-                      canAfford: true,
+              FutureBuilder<List<dynamic>>(
+                future: ApiService().fetchRewards(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  }
+                  final rewards = snapshot.data ?? [];
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: rewards.map((reward) {
+                        return RewardItem(
+                          title: reward['title'],
+                          subtitle: reward['partner'],
+                          points: reward['cost'],
+                          imageAsset: '',
+                          onRedeem: () {
+                            // Logic to redeem
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Redeeming ${reward['title']}...')),
+                            );
+                          },
+                          canAfford: userProvider.ecoPoints >= reward['cost'],
+                        );
+                      }).toList(),
                     ),
-                    RewardItem(
-                      title: 'Free Coffee',
-                      subtitle: 'At Java House',
-                      points: 2000,
-                      imageAsset: '',
-                      onRedeem: () {},
-                      canAfford: false, // 1250 < 2000
-                    ),
-                    RewardItem(
-                      title: 'Cinema Ticket',
-                      subtitle: 'IMAX Garden City',
-                      points: 1500,
-                      imageAsset: '',
-                      onRedeem: () {},
-                      canAfford: false,
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               
               const SizedBox(height: 80),

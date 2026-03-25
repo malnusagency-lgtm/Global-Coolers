@@ -6,6 +6,7 @@ import '../utils/app_localizations.dart';
 import '../widgets/activity_item.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/impact_card.dart';
+import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -16,6 +17,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  late Future<List<dynamic>> _pickupsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickupsFuture = ApiService().fetchPickups();
+  }
 
   void _onNavTap(int index) {
     setState(() {
@@ -40,221 +48,236 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: FutureBuilder<List<dynamic>>(
+          future: _pickupsFuture,
+          builder: (context, snapshot) {
+            final pickups = snapshot.data ?? [];
+            final activePickup = pickups.isEmpty ? null : pickups.firstWhere((p) => p['status'] == 'scheduled', orElse: () => null);
+            final recentActivity = pickups.where((p) => p['status'] == 'completed').toList();
+
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.translate('welcome'),
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                        ),
-                        Text(
-                          userProvider.userName,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Header
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/notifications'),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.translate('welcome'),
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                             ),
-                            child: const Icon(Icons.notifications_none, color: AppColors.textPrimary, size: 22),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const CircleAvatar(
-                          radius: 24,
-                          backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=muthoni'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Impact Card
-                ImpactCard(
-                  points: userProvider.ecoPoints,
-                  co2Saved: 120,
-                  onTap: () => Navigator.pushNamed(context, '/impact-stats'),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Quick Actions
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 110,
-                  child: Row(
-                    children: [
-                      _buildActionCard(context, l10n.translate('schedule_pickup'), Icons.calendar_today_rounded, AppColors.primary, '/schedule-pickup'),
-                      const SizedBox(width: 12),
-                      _buildActionCard(context, l10n.translate('report_issue'), Icons.report_problem_outlined, AppColors.warning, '/report-issue'),
-                      const SizedBox(width: 12),
-                      _buildActionCard(context, 'Guide', Icons.menu_book_rounded, AppColors.info, '/waste-guide'),
-                      const SizedBox(width: 12),
-                      _buildActionCard(context, l10n.translate('community'), Icons.people_rounded, const Color(0xFF9C27B0), '/challenges'),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Active Pickup
-                GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, '/live-tracking'),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.local_shipping, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Active Pickup',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: AppColors.textPrimary,
-                                ),
+                            Text(
+                              userProvider.userName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
                               ),
-                              Text(
-                                'Driver is 5 mins away',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Live Map',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(context, '/notifications'),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.notifications_none, color: AppColors.textPrimary, size: 22),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const CircleAvatar(
+                              radius: 24,
+                              backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=muthoni'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                ),
 
-                const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
-                // Recent Activity
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                    // Impact Card
+                    ImpactCard(
+                      points: userProvider.ecoPoints,
+                      co2Saved: 120,
+                      onTap: () => Navigator.pushNamed(context, '/impact-stats'),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Quick Actions
                     const Text(
-                      'Recent Activity',
+                      'Quick Actions',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: () {},
-                      child: const Text(
-                        'View All',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 110,
+                      child: Row(
+                        children: [
+                          _buildActionCard(context, l10n.translate('schedule_pickup'), Icons.calendar_today_rounded, AppColors.primary, '/schedule-pickup'),
+                          const SizedBox(width: 12),
+                          _buildActionCard(context, l10n.translate('report_issue'), Icons.report_problem_outlined, AppColors.warning, '/report-issue'),
+                          const SizedBox(width: 12),
+                          _buildActionCard(context, 'Guide', Icons.menu_book_rounded, AppColors.info, '/waste-guide'),
+                          const SizedBox(width: 12),
+                          _buildActionCard(context, l10n.translate('community'), Icons.people_rounded, const Color(0xFF9C27B0), '/challenges'),
+                        ],
                       ),
                     ),
+
+                    const SizedBox(height: 32),
+
+                    // Active Pickup
+                    if (activePickup != null)
+                      GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/live-tracking'),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.local_shipping, color: AppColors.primary),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      activePickup['wasteType'] ?? 'Active Pickup',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      activePickup['date'] ?? 'Scheduled',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Live Map',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 32),
+
+                    // Recent Activity
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Recent Activity',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const Center(child: CircularProgressIndicator())
+                    else if (recentActivity.isEmpty)
+                      const ActivityItem(
+                        title: 'No recent activity',
+                        timestamp: 'Start recycling to earn points!',
+                        points: 0,
+                        icon: Icons.info_outline,
+                        iconColor: Colors.grey,
+                        backgroundColor: Color(0xFFF5F5F5),
+                      )
+                    else
+                      ...recentActivity.map((p) => ActivityItem(
+                            title: '${p['wasteType']} Completed',
+                            timestamp: p['date'] ?? 'Recently',
+                            points: 50,
+                            icon: Icons.check_circle_rounded,
+                            iconColor: AppColors.success,
+                            backgroundColor: const Color(0xFFE8F5E9),
+                          )),
+
+                    // Bottom spacing for nav bar
+                    const SizedBox(height: 80),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                const ActivityItem(
-                  title: 'Weekly Pickup Completed',
-                  timestamp: 'Yesterday, 9:45 AM',
-                  points: 50,
-                  icon: Icons.check_circle_rounded,
-                  iconColor: AppColors.success,
-                  backgroundColor: Color(0xFFE8F5E9),
-                ),
-
-                const ActivityItem(
-                  title: 'Plastic Recycling',
-                  timestamp: 'Tue 12th, 2:30 PM',
-                  points: 120,
-                  icon: Icons.recycling_rounded,
-                  iconColor: Color(0xFF9C27B0),
-                  backgroundColor: Color(0xFFF3E5F5),
-                ),
-
-                // Bottom spacing for nav bar
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
+        ),
+      ),
         ),
       ),
       bottomNavigationBar: BottomNavBar(

@@ -31,6 +31,30 @@ class ApiService {
     }
   }
 
+  /// Fetches the list of rewards
+  Future<List<dynamic>> fetchRewards() async {
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.rewards));
+      final data = await _handleResponse(response);
+      return data['rewards'];
+    } catch (e) {
+      print('ApiService Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches the list of pickups
+  Future<List<dynamic>> fetchPickups() async {
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.pickups));
+      final data = await _handleResponse(response);
+      return data['pickups'];
+    } catch (e) {
+      print('ApiService Error: $e');
+      rethrow;
+    }
+  }
+
   /// Submits a scheduling request
   Future<Map<String, dynamic>> schedulePickup(
       String date, String wasteType, String address) async {

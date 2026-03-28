@@ -136,9 +136,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                             ),
                             const SizedBox(width: 12),
-                            const CircleAvatar(
+                            CircleAvatar(
                               radius: 20,
-                              backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=muthoni'),
+                              backgroundColor: AppColors.primary,
+                              child: Text(
+                                userProvider.userName.isNotEmpty ? userProvider.userName[0].toUpperCase() : 'G', 
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                              ),
                             ),
                           ],
                         ),
@@ -150,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Impact Card
                     ImpactCard(
                       points: userProvider.ecoPoints,
-                      co2Saved: 120,
+                      co2Saved: userProvider.totalWasteDiverted.toDouble(),
                       onTap: () => Navigator.pushNamed(context, '/impact-stats'),
                     ),
 

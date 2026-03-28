@@ -66,57 +66,30 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> wit
   }
 
   Widget _buildNotificationList(String filter) {
-    // Mock data
-    final notifications = [
-      {
-        'title': 'Pickup Completed',
-        'message': 'Your organic waste pickup was successfully completed. You earned 50 points!',
-        'time': '2 mins ago',
-        'type': NotificationType.activity,
-      },
-      {
-        'title': 'System Maintenance',
-        'message': 'Scheduled maintenance on Oct 15th from 2AM to 4AM.',
-        'time': '1 hr ago',
-        'type': NotificationType.system,
-      },
-      {
-        'title': 'New Challenge Available',
-        'message': 'Join the "Zero Waste Weekend" challenge and earn double points!',
-        'time': '5 hrs ago',
-        'type': NotificationType.community,
-        'actionLabel': 'Join Now',
-      },
-       {
-        'title': 'Driver Arriving',
-        'message': 'Driver John is 5 minutes away from your location.',
-        'time': 'Yesterday',
-        'type': NotificationType.alert,
-      },
-    ];
-
-    // Filter logic (mock)
-    final filteredNotifications = notifications.where((n) {
-      if (filter == 'All') return true;
-      if (filter == 'Activity') return n['type'] == NotificationType.activity || n['type'] == NotificationType.community;
-      if (filter == 'System') return n['type'] == NotificationType.system || n['type'] == NotificationType.alert;
-      return true;
-    }).toList();
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: filteredNotifications.length,
-      itemBuilder: (context, index) {
-        final n = filteredNotifications[index];
-        return NotificationCard(
-          title: n['title'] as String,
-          message: n['message'] as String,
-          time: n['time'] as String,
-          type: n['type'] as NotificationType,
-          actionLabel: n['actionLabel'] as String?,
-          onAction: () {},
-        );
-      },
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'No notifications',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You\'re all caught up!',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

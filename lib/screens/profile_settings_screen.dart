@@ -72,7 +72,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      userProvider.userName.isEmpty ? 'Jane Wanjiku' : userProvider.userName,
+                      userProvider.userName.isEmpty ? 'Guest' : userProvider.userName,
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,

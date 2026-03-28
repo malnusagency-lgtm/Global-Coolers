@@ -53,17 +53,17 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> redeemReward(int cost) async {
-    return redeemPoints(cost);
+  Future<bool> redeemReward(int cost, {String rewardId = 'REWARD'}) async {
+    return redeemPoints(cost, rewardId: rewardId);
   }
 
-  Future<bool> redeemPoints(int cost) async {
+  Future<bool> redeemPoints(int cost, {String rewardId = 'REWARD'}) async {
     if (_userId.isEmpty) return false;
 
     try {
       final success = await ApiService.redeemReward(
         userId: _userId,
-        rewardId: 'REWARD',
+        rewardId: rewardId,
         pointsCost: cost,
       );
       if (success) {

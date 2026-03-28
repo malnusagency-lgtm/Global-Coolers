@@ -167,21 +167,35 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
             // Product Grid
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.7,
-                children: [
-                  _buildProductCard(context, '100 KES Airtime', 'Safaricom / Airtel', 500),
-                  _buildProductCard(context, '10% Off Refill', 'K-Gas 6kg Cylinder', 1000),
-                  _buildProductCard(context, 'Shopping Voucher', 'Naivas Supermarket', 2500),
-                  _buildProductCard(context, 'Free Coffee', 'Java House', 300),
-                  _buildProductCard(context, 'Donate a Tree', 'Karura Forest', 150),
-                  _buildProductCard(context, 'Eco Tote Bag', 'Made in Kibera', 800),
-                ],
+              child: FutureBuilder<List<dynamic>>(
+                future: ApiService.getRewards(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Failed to load rewards: ${snapshot.error}'));
+                  }
+                  final rewards = snapshot.data ?? [];
+                  if (rewards.isEmpty) {
+                    return const Center(child: Text('No rewards available.'));
+                  }
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.7,
+                    children: rewards.map((reward) => _buildProductCard(
+                      context, 
+                      reward['id']?.toString() ?? 'REWARD', 
+                      reward['title'] ?? 'Reward', 
+                      reward['partner'] ?? 'Partner', 
+                      reward['cost'] ?? 500,
+                    )).toList(),
+                  );
+                },
               ),
             ),
 
@@ -200,7 +214,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
     );
   }
 
-  Widget _buildProductCard(BuildContext context, String name, String subtitle, int points) {
+  Widget _buildProductCard(BuildContext context, String id, String name, String subtitle, int points) {
     final currentPoints = context.watch<UserProvider>().ecoPoints;
     final canRedeem = currentPoints >= points;
 
@@ -237,21 +251,21 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: AppColors.textSecondary, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: canRedeem ? () async {
-                      // Show loading or disable buttons during redemption
-                      final scaffoldMsg = ScaffoldMessenger.of(context);
-                      scaffoldMsg.showSnackBar(const SnackBar(content: Text('Processing redemption...'), duration: Duration(seconds: 1)));
-                      
-                      final success = await context.read<UserProvider>().redeemPoints(points);
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                 const SizedBox(height: 2),
+                 Text(subtitle, style: TextStyle(color: AppColors.textSecondary, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                 const SizedBox(height: 8), // Replaced spacer with fixed padding so it doesn't overflow
+                 SizedBox(
+                   width: double.infinity,
+                   child: ElevatedButton(
+                     onPressed: canRedeem ? () async {
+                       // Show loading or disable buttons during redemption
+                       final scaffoldMsg = ScaffoldMessenger.of(context);
+                       scaffoldMsg.showSnackBar(const SnackBar(content: Text('Processing redemption...'), duration: Duration(seconds: 1)));
+                       
+                       final success = await context.read<UserProvider>().redeemPoints(points, rewardId: id);
                       if (success) {
                         scaffoldMsg.showSnackBar(const SnackBar(content: Text('Reward redeemed successfully!'), backgroundColor: AppColors.success));
                       } else {

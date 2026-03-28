@@ -66,7 +66,14 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
-                child: Column(
+                child: Builder(
+                  builder: (context) {
+                    final now = DateTime.now();
+                    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    final currentMonthYear = '${months[now.month - 1]} ${now.year}';
+                    
+                    return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Brief location card
@@ -160,9 +167,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const Text(
-                          'October 2023', // Hardcoded mockup date
-                          style: TextStyle(
+                        Text(
+                          currentMonthYear,
+                          style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
                           ),
@@ -176,12 +183,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                         scrollDirection: Axis.horizontal,
                         itemCount: 7,
                         itemBuilder: (context, index) {
-                          // Mockup dates starting from Monday 1st (example)
-                          final day = index + 1;
+                          final date = now.add(Duration(days: index));
                           final isSelected = _selectedDateIndex == index;
-                          // Approx mapping to mockup image days
-                          List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                          // Shift logic for prototype - just showing structure
                            
                           return GestureDetector(
                             onTap: () {
@@ -199,7 +202,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    weekDays[index % 7], // Simple cycle
+                                    weekDays[date.weekday - 1],
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isSelected ? Colors.white : AppColors.textSecondary,
@@ -207,7 +210,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${day + 5}', // Making up date numbers to look like mockup
+                                    '${date.day}',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -311,11 +314,13 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                                 ],
                               ),
                       ),
+                      ),
                     ),
                   ],
-                ),
-              ),
+                );
+              }),
             ),
+          ),
             
             // Confirm Button
             Padding(

@@ -133,8 +133,8 @@ class SplashScreen extends StatelessWidget {
                       ),
                       GestureDetector(
                         onTap: () {
-                          // Navigate to Login/Home for demo
-                           Navigator.pushNamed(context, '/home');
+                          // Navigate to Login
+                           Navigator.pushNamed(context, '/login');
                         },
                         child: const Text(
                           'Log in',

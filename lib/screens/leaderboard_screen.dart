@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/supabase_service.dart';
+import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -20,7 +20,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   void initState() {
     super.initState();
-    _leaderboardFuture = SupabaseService().getLeaderboard();
+    _leaderboardFuture = ApiService.getLeaderboard();
   }
 
   @override

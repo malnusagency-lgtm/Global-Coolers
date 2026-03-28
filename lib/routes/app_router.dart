@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/splash_screen.dart';
 import '../screens/create_account_screen.dart';
+import '../screens/login_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/schedule_pickup_screen.dart';
 import '../screens/live_tracking_screen.dart';
@@ -29,6 +30,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case '/create-account':
         return MaterialPageRoute(builder: (_) => const CreateAccountScreen());
+      case '/login':
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
       case '/home':
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       case '/schedule-pickup':

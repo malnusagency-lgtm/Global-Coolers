@@ -49,3 +49,6 @@ app.*.map.json
 
 # Flutter SDK (for Vercel build)
 /flutter/
+
+# Supabase Config (contains secrets)
+lib/config/supabase_config.dart

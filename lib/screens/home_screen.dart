@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
+import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/activity_item.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/impact_card.dart';
-import '../services/supabase_service.dart';
+import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -17,12 +18,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  late Future<List<dynamic>> _pickupsFuture;
+  Future<List<dynamic>>? _pickupsFuture;
 
   @override
-  void initState() {
-    super.initState();
-    _pickupsFuture = SupabaseService().getPickups();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_pickupsFuture == null) {
+      final userId = context.read<UserProvider>().userId;
+      if (userId.isNotEmpty) {
+        _pickupsFuture = ApiService.getPickups(userId);
+      } else {
+        _pickupsFuture = Future.value([]);
+      }
+    }
   }
 
   void _onNavTap(int index) {
@@ -49,10 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: FutureBuilder<List<dynamic>>(
-          future: _pickupsFuture,
+          future: _pickupsFuture ?? Future.value([]),
           builder: (context, snapshot) {
             final pickups = snapshot.data ?? [];
-            final activePickup = pickups.isEmpty ? null : pickups.firstWhere((p) => p['status'] == 'scheduled', orElse: () => null);
+            final activePickup = pickups.isEmpty ? null : pickups.cast<Map<String, dynamic>?>().firstWhere((p) => p?['status'] == 'scheduled', orElse: () => null);
             final recentActivity = pickups.where((p) => p['status'] == 'completed').toList();
 
             return SingleChildScrollView(
@@ -103,8 +111,33 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
+                            Consumer<LocaleProvider>(
+                              builder: (context, localeProvider, _) {
+                                final isEnglish = localeProvider.locale.languageCode == 'en';
+                                return GestureDetector(
+                                  onTap: () => localeProvider.toggleLocale(),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                                    ),
+                                    child: Text(
+                                      isEnglish ? 'EN' : 'SW',
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 12),
                             const CircleAvatar(
-                              radius: 24,
+                              radius: 20,
                               backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=muthoni'),
                             ),
                           ],
@@ -183,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      activePickup['wasteType'] ?? 'Active Pickup',
+                                      activePickup['waste_type'] ?? activePickup['wasteType'] ?? 'Active Pickup',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
@@ -261,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     else
                       ...recentActivity.map((p) => ActivityItem(
-                            title: '${p['wasteType']} Completed',
+                            title: '${p['waste_type'] ?? p['wasteType'] ?? 'Pickup'} Completed',
                             timestamp: p['date'] ?? 'Recently',
                             points: 50,
                             icon: Icons.check_circle_rounded,

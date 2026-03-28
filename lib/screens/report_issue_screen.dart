@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
+import '../providers/user_provider.dart';
 
 class ReportIssueScreen extends StatefulWidget {
   const ReportIssueScreen({Key? key}) : super(key: key);
@@ -187,16 +190,42 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isLoading = true);
-                      await Future.delayed(const Duration(seconds: 1)); // Mock Network
-                      if (!mounted) return;
+                      
+                      try {
+                        final userId = context.read<UserProvider>().userId;
+                        final success = await ApiService.submitReport(
+                          userId: userId,
+                          issueType: _selectedIssueType!,
+                          location: _locationController.text,
+                          description: _descController.text,
+                        );
 
-                      Navigator.pop(context); // Go back
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Report submitted successfully!'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
+                        if (!mounted) return;
+
+                        if (success) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Report submitted successfully!'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to submit report. Please try again.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _isLoading = false);
+                      }
                     }
                   },
                   child: _isLoading

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../providers/user_provider.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({Key? key}) : super(key: key);
@@ -13,6 +15,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isPhone = true;
   int _selectedRoleIndex = 0; // 0: Household, 1: Collector
   bool _isLoading = false;
+  bool _obscurePassword = true;
   
   final _formKey = GlobalKey<FormState>();
   final _contactController = TextEditingController();
@@ -33,14 +36,82 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   ];
 
   @override
+  void dispose() {
+    _contactController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      final supabase = Supabase.instance.client;
+      final String email = _isPhone 
+        ? '${_contactController.text.trim()}@phone.globalcoolers.app'
+        : _contactController.text.trim();
+      
+      final response = await supabase.auth.signUp(
+        email: email,
+        password: _passwordController.text.trim(),
+      );
+
+      if (response.user != null) {
+        // Insert profile into Supabase (backend also reads from this table)
+        await supabase.from('profiles').insert({
+          'id': response.user!.id,
+          'full_name': _nameController.text.trim(),
+          'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
+          'eco_points': 500,
+          'co2_saved': 0,
+        });
+
+        if (!mounted) return;
+
+        // Reload user data in the provider
+        await context.read<UserProvider>().loadUserData();
+
+        if (!mounted) return;
+        
+        final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
+        Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Create Account'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
       body: SafeArea(
         child: Form(
@@ -80,16 +151,59 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   children: [
                     _buildToggleOption('Phone', _isPhone, () {
                       setState(() => _isPhone = true);
+                      _contactController.clear();
                     }),
                     _buildToggleOption('Email', !_isPhone, () {
                       setState(() => _isPhone = false);
+                      _contactController.clear();
                     }),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Input Field
+              // Full Name
+              const Text(
+                'Full Name',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Muthoni Njeri',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  prefixIcon: const Icon(Icons.person_outline, size: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return 'Enter your full name';
+                  if (value.trim().length < 2) return 'Name too short';
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Contact Input
               Text(
                 _isPhone ? 'Phone Number' : 'Email Address',
                 style: const TextStyle(
@@ -105,7 +219,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
@@ -125,6 +239,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         decoration: InputDecoration(
                           hintText: '7XX XXX XXX',
                           hintStyle: TextStyle(color: Colors.grey.shade400),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) return 'Enter phone number';
@@ -142,37 +270,35 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   decoration: InputDecoration(
                     hintText: 'name@example.com',
                     hintStyle: TextStyle(color: Colors.grey.shade400),
+                    prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
                   ),
-                    if (!value.contains('@')) return 'Invalid email address';
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Enter email address';
+                    if (!value.contains('@') || !value.contains('.')) return 'Invalid email address';
                     return null;
                   },
                 ),
 
               const SizedBox(height: 16),
 
-              Text(
-                'Full Name',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Muthoni N.',
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                ),
-                validator: (value) => value!.isEmpty ? 'Enter your name' : null,
-              ),
-
-              const SizedBox(height: 16),
-
-              Text(
+              // Password
+              const Text(
                 'Password',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                   color: AppColors.textPrimary,
@@ -181,10 +307,33 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  hintText: '********',
+                  hintText: 'Min 6 characters',
                   hintStyle: TextStyle(color: Colors.grey.shade400),
+                  prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Enter password';
@@ -301,52 +450,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : () async {
-                    if (_formKey.currentState!.validate()) {
-                      setState(() => _isLoading = true);
-                      
-                      try {
-                        final supabase = Supabase.instance.client;
-                        final String email = _isPhone 
-                          ? '${_contactController.text.trim()}@phone.local' // Supabase phone auth requires setup, using proxy for now or user can provide email
-                          : _contactController.text.trim();
-                        
-                        final response = await supabase.auth.signUp(
-                          email: email,
-                          password: _passwordController.text.trim(),
-                        );
-
-                        if (response.user != null) {
-                          // Insert into profiles
-                          await supabase.from('profiles').insert({
-                            'id': response.user!.id,
-                            'full_name': _nameController.text.trim(),
-                            'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
-                            'eco_points': 500, // Starting points
-                            'co2_saved': 0,
-                          });
-
-                          if (!mounted) return;
-                          
-                          String route = '/home';
-                          if (_selectedRoleIndex == 1) route = '/collector-dashboard';
-                          
-                          Navigator.pushNamed(context, route);
-                        }
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
-                      } finally {
-                        if (mounted) setState(() => _isLoading = false);
-                      }
-                    }
-                  },
+                  onPressed: _isLoading ? null : _handleSignUp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
                   child: _isLoading 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Continue'),
+                      : const Text('Create Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
               
@@ -360,7 +477,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      // Login flow not fully specified in d2, but would go here
+                      Navigator.pushReplacementNamed(context, '/login');
                     },
                     child: const Text(
                       'Log in',
@@ -372,13 +489,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     ),
-  );
-}
+    );
+  }
 
   Widget _buildToggleOption(String title, bool isSelected, VoidCallback onTap) {
     return Expanded(

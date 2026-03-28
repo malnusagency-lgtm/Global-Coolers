@@ -2,7 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
 import '../services/supabase_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 class SchedulePickupScreen extends StatefulWidget {
   const SchedulePickupScreen({Key? key}) : super(key: key);
@@ -330,8 +333,17 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                       }
 
                       final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
-                      await SupabaseService().schedulePickup(
-                        date: 'Today, 2:00 PM', 
+                      final userId = context.read<UserProvider>().userId;
+                      
+                      // Build a human-readable date from selection
+                      final now = DateTime.now();
+                      final selectedDate = now.add(Duration(days: _selectedDateIndex));
+                      final timeSlotLabel = _selectedTimeSlot == 0 ? '8:00 - 11:00 AM' : '1:00 - 4:00 PM';
+                      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')} $timeSlotLabel';
+
+                      final pickup = await ApiService.schedulePickup(
+                        userId: userId,
+                        date: dateStr,
                         wasteType: categoryName, 
                         address: 'Plot 45, Kilimani Estate, Nairobi',
                         photoUrl: photoUrl,

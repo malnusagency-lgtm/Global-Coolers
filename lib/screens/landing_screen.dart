@@ -49,7 +49,7 @@ class LandingScreen extends StatelessWidget {
                   
                   Positioned(
                     top: 16,
-                    left: 16,
+                    right: 16,
                     child: SafeArea(
                       child: Consumer<LocaleProvider>(
                         builder: (context, localeProvider, child) {

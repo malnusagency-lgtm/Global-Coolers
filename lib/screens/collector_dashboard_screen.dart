@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'dart:async';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/supabase_service.dart';
+import '../services/api_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 
 class CollectorDashboardScreen extends StatefulWidget {
@@ -15,7 +17,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
   bool _isOnDuty = true;
   int _currentNavIndex = 0;
   Timer? _locationTimer;
-  final SupabaseService _supabaseService = SupabaseService();
   LatLng _currentLocation = const LatLng(-1.2960, 36.8150);
 
   @override
@@ -36,10 +37,14 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         );
       });
       
-      _supabaseService.updateLocation(
-        _currentLocation.latitude,
-        _currentLocation.longitude,
-      );
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) {
+        ApiService.updateProfile(
+          userId: userId,
+          latitude: _currentLocation.latitude,
+          longitude: _currentLocation.longitude,
+        );
+      }
     });
   }
 

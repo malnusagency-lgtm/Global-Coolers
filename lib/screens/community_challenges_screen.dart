@@ -1,8 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/supabase_service.dart';
+import '../services/api_service.dart';
 
 class CommunityChallengesScreen extends StatefulWidget {
   const CommunityChallengesScreen({Key? key}) : super(key: key);
@@ -13,7 +14,6 @@ class CommunityChallengesScreen extends StatefulWidget {
 
 class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
   int _selectedTab = 0;
-  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   Widget build(BuildContext context) {

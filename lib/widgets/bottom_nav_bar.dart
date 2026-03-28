@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_localizations.dart';
 
-enum UserRole { resident, collector, admin }
+enum UserRole { resident, collector }
 
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -32,13 +32,6 @@ class BottomNavBar extends StatelessWidget {
           _NavItem(Icons.history_rounded, l10n.translate('historia')),
           _NavItem(Icons.person_rounded, l10n.translate('akaunti')),
         ];
-      case UserRole.admin:
-        return [
-          _NavItem(Icons.home_rounded, l10n.translate('nyumbani')),
-          _NavItem(Icons.bar_chart_rounded, l10n.translate('uchambuzi')),
-          _NavItem(Icons.map_rounded, l10n.translate('ramani')),
-          _NavItem(Icons.settings_rounded, l10n.translate('mipangilio')),
-        ];
     }
   }
 
@@ -46,7 +39,7 @@ class BottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: role == UserRole.admin ? const Color(0xFF1A2E1A) : Colors.white,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -71,12 +64,8 @@ class BottomNavBar extends StatelessWidget {
 
   Widget _buildNavItem(int index, IconData icon, String label) {
     final bool isSelected = currentIndex == index;
-    final Color inactiveColor = role == UserRole.admin
-        ? Colors.white54
-        : AppColors.textSecondary;
-    final Color activeColor = role == UserRole.admin
-        ? Colors.white
-        : AppColors.primary;
+    final Color inactiveColor = AppColors.textSecondary;
+    final Color activeColor = AppColors.primary;
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -86,9 +75,7 @@ class BottomNavBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? (role == UserRole.admin
-                  ? Colors.white.withValues(alpha: 0.1)
-                  : AppColors.primary.withValues(alpha: 0.1))
+              ? AppColors.primary.withValues(alpha: 0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),

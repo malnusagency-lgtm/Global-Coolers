@@ -5,8 +5,10 @@ import '../widgets/bottom_nav_bar.dart';
 import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import '../widgets/badge_item.dart';
+
 class RewardsScreen extends StatefulWidget {
-  const RewardsScreen({Key? key}) : super(key: key);
+  const RewardsScreen({super.key});
 
   @override
   State<RewardsScreen> createState() => _RewardsScreenState();
@@ -126,7 +128,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: const [
+                  children: [
                     BadgeItem(
                       title: 'Eco Warrior',
                       icon: Icons.shield,

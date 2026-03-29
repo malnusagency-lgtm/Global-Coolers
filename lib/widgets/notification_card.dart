@@ -13,7 +13,7 @@ class NotificationCard extends StatelessWidget {
   final VoidCallback? onAction;
 
   const NotificationCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.message,
     required this.time,
@@ -21,7 +21,7 @@ class NotificationCard extends StatelessWidget {
     this.onTap,
     this.actionLabel,
     this.onAction,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

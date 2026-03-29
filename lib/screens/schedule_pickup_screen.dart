@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 
 class SchedulePickupScreen extends StatefulWidget {
-  const SchedulePickupScreen({Key? key}) : super(key: key);
+  const SchedulePickupScreen({super.key});
 
   @override
   State<SchedulePickupScreen> createState() => _SchedulePickupScreenState();
@@ -81,9 +81,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         children: [
@@ -400,7 +400,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             )
@@ -412,7 +412,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: category['color'].withOpacity(0.1),
+                color: category['color'].withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

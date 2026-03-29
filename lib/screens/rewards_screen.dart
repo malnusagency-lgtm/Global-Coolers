@@ -1,9 +1,10 @@
+import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../widgets/reward_item.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
-
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({Key? key}) : super(key: key);
 

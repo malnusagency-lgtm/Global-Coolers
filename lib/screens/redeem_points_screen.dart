@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/bottom_nav_bar.dart';
-
 class RedeemPointsScreen extends StatefulWidget {
   const RedeemPointsScreen({Key? key}) : super(key: key);
 

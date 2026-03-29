@@ -52,3 +52,7 @@ app.*.map.json
 
 # Supabase Config (contains secrets)
 lib/config/supabase_config.dart
+
+# Backend
+backend/node_modules/
+backend/.env

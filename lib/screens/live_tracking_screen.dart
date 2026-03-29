@@ -6,7 +6,7 @@ import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
-  const LiveTrackingScreen({Key? key}) : super(key: key);
+  const LiveTrackingScreen({super.key});
 
   @override
   State<LiveTrackingScreen> createState() => _LiveTrackingScreenState();
@@ -103,7 +103,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10)),
                 ],
               ),
               child: Column(
@@ -126,7 +126,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                         child: const Text('On route', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                       ),
                     ],
@@ -174,7 +174,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))],
         border: Border.all(color: color, width: 3),
       ),
       child: Icon(icon, color: color, size: 20),

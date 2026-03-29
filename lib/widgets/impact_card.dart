@@ -7,11 +7,11 @@ class ImpactCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const ImpactCard({
-    Key? key,
+    super.key,
     required this.points,
     required this.co2Saved,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

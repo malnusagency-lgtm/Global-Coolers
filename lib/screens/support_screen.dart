@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class SupportScreen extends StatelessWidget {
-  const SupportScreen({Key? key}) : super(key: key);
+  const SupportScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

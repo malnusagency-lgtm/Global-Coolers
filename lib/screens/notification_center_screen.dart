@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../widgets/notification_card.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
-  const NotificationCenterScreen({Key? key}) : super(key: key);
+  const NotificationCenterScreen({super.key});
 
   @override
   State<NotificationCenterScreen> createState() => _NotificationCenterScreenState();

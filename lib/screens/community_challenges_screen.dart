@@ -6,7 +6,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../services/api_service.dart';
 
 class CommunityChallengesScreen extends StatefulWidget {
-  const CommunityChallengesScreen({Key? key}) : super(key: key);
+  const CommunityChallengesScreen({super.key});
 
   @override
   State<CommunityChallengesScreen> createState() => _CommunityChallengesScreenState();
@@ -53,7 +53,7 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
                             ),
                             child: Row(
                               children: [

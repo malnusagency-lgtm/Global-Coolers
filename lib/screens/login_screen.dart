@@ -5,7 +5,7 @@ import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPhone = false; // Default to email for login
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String _statusMessage = '';
   
   final _formKey = GlobalKey<FormState>();
   final _contactController = TextEditingController();
@@ -27,10 +28,46 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _setStatus(String message) {
+    if (mounted) {
+      setState(() => _statusMessage = message);
+    }
+  }
+
+  /// Ensures a profile exists for the given user. If not, creates one.
+  /// This handles edge cases where auth succeeded but profile creation failed.
+  Future<void> _ensureProfileExists(String userId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final existing = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (existing == null) {
+        _setStatus('Setting up your profile...');
+        await supabase.from('profiles').insert({
+          'id': userId,
+          'full_name': 'User',
+          'role': 'resident',
+          'eco_points': 500,
+          'co2_saved': 0,
+        });
+      }
+    } catch (e) {
+      debugPrint('Profile check/create failed: $e');
+      // Non-fatal — the app can still function
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Logging in...';
+    });
     
     try {
       final supabase = Supabase.instance.client;
@@ -38,26 +75,68 @@ class _LoginScreenState extends State<LoginScreen> {
         ? '${_contactController.text.trim()}@phone.globalcoolers.app'
         : _contactController.text.trim();
       
-      final response = await supabase.auth.signInWithPassword(
-        email: email,
-        password: _passwordController.text.trim(),
-      );
+      // Login with retry (up to 20 attempts for network resilience)
+      AuthResponse? response;
+      Exception? lastError;
 
-      if (response.user != null) {
-        if (!mounted) return;
-
-        // Reload user data in the provider
-        await context.read<UserProvider>().loadUserData();
-
-        if (!mounted) return;
-        
-        // Check user role to navigate
-        final userProvider = context.read<UserProvider>();
-        final route = userProvider.role == AppRole.collector 
-            ? '/collector-dashboard' 
-            : '/home';
-        Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+      for (int attempt = 1; attempt <= 20; attempt++) {
+        try {
+          _setStatus('Logging in (attempt $attempt/20)...');
+          response = await supabase.auth.signInWithPassword(
+            email: email,
+            password: _passwordController.text.trim(),
+          );
+          if (response.user != null) break;
+        } on AuthException catch (e) {
+          // Don't retry for wrong credentials
+          if (e.message.toLowerCase().contains('invalid') ||
+              e.message.toLowerCase().contains('credentials') ||
+              e.message.toLowerCase().contains('not found')) {
+            throw e;
+          }
+          lastError = e;
+          debugPrint('Login attempt $attempt failed: ${e.message}');
+          
+          if (attempt < 20) {
+            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
+            _setStatus('Retrying (${delay.inSeconds}s)...');
+            await Future.delayed(delay);
+          }
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          debugPrint('Login attempt $attempt failed: $e');
+          
+          if (attempt < 20) {
+            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
+            _setStatus('Retrying (${delay.inSeconds}s)...');
+            await Future.delayed(delay);
+          }
+        }
       }
+
+      if (response?.user == null) {
+        throw lastError ?? Exception('Login failed after 20 attempts');
+      }
+
+      if (!mounted) return;
+
+      // Ensure profile exists (handles edge case from failed signup)
+      await _ensureProfileExists(response!.user!.id);
+
+      if (!mounted) return;
+
+      // Load user data with its own retry logic
+      _setStatus('Loading your data...');
+      await context.read<UserProvider>().loadUserData();
+
+      if (!mounted) return;
+      
+      // Check user role to navigate
+      final userProvider = context.read<UserProvider>();
+      final route = userProvider.role == AppRole.collector 
+          ? '/collector-dashboard' 
+          : '/home';
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,7 +154,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = '';
+        });
+      }
     }
   }
 
@@ -103,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.2),
+                          color: AppColors.primary.withValues(alpha: 0.2),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -296,7 +380,41 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Status message during loading
+                if (_statusMessage.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_isLoading) ...[
+                          const SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Expanded(
+                          child: Text(
+                            _statusMessage,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 // Login Button
                 SizedBox(
@@ -358,7 +476,7 @@ class _LoginScreenState extends State<LoginScreen> {
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
-                ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1))]
+                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))]
                 : null,
           ),
           margin: const EdgeInsets.all(4),

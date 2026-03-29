@@ -10,14 +10,14 @@ class RewardItem extends StatelessWidget {
   final bool canAfford;
 
   const RewardItem({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.points,
     required this.imageAsset,
     required this.onRedeem,
     required this.canAfford,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

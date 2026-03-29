@@ -6,7 +6,7 @@ import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
 class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({Key? key}) : super(key: key);
+  const LeaderboardScreen({super.key});
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
@@ -103,11 +103,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               const SizedBox(width: 8),
                               // 1st Place
                               if (top3.isNotEmpty)
-                                _buildPodiumItem(top3[0]['full_name'] ?? 'Winner', '${top3[0]['co2_saved']}kg', 1, 170, AppColors.primary.withOpacity(0.15)),
+                                _buildPodiumItem(top3[0]['full_name'] ?? 'Winner', '${top3[0]['co2_saved']}kg', 1, 170, AppColors.primary.withValues(alpha: 0.15)),
                               const SizedBox(width: 8),
                               // 3rd Place
                               if (top3.length > 2)
-                                _buildPodiumItem(top3[2]['full_name'] ?? 'Alt', '${top3[2]['co2_saved']}kg', 3, 90, Colors.orange.withOpacity(0.15)),
+                                _buildPodiumItem(top3[2]['full_name'] ?? 'Alt', '${top3[2]['co2_saved']}kg', 3, 90, Colors.orange.withValues(alpha: 0.15)),
                             ],
                           ),
                         ],
@@ -147,7 +147,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   const SizedBox(width: 16),
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppColors.primary.withOpacity(0.3),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.3),
                     child: const Icon(Icons.person, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),

@@ -10,11 +10,11 @@ class BottomNavBar extends StatelessWidget {
   final UserRole role;
 
   const BottomNavBar({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
     this.role = UserRole.resident,
-  }) : super(key: key);
+  });
 
   List<_NavItem> _items(BuildContext context) {
     final l10n = AppLocalizations.of(context);

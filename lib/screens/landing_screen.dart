@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/locale_provider.dart';
 
 class LandingScreen extends StatelessWidget {
-  const LandingScreen({Key? key}) : super(key: key);
+  const LandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

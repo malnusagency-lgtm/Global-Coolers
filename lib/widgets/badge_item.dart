@@ -8,12 +8,12 @@ class BadgeItem extends StatelessWidget {
   final bool isLocked;
 
   const BadgeItem({
-    Key? key,
+    super.key,
     required this.title,
     required this.icon,
     required this.color,
     this.isLocked = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

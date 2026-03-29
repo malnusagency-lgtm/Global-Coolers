@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class WasteGuideScreen extends StatelessWidget {
-  const WasteGuideScreen({Key? key}) : super(key: key);
+  const WasteGuideScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

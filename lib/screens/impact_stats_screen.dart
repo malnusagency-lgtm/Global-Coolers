@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class ImpactStatsScreen extends StatefulWidget {
-  const ImpactStatsScreen({Key? key}) : super(key: key);
+  const ImpactStatsScreen({super.key});
 
   @override
   State<ImpactStatsScreen> createState() => _ImpactStatsScreenState();

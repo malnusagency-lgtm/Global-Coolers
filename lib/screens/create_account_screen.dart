@@ -5,7 +5,7 @@ import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
 
 class CreateAccountScreen extends StatefulWidget {
-  const CreateAccountScreen({Key? key}) : super(key: key);
+  const CreateAccountScreen({super.key});
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
@@ -16,6 +16,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   int _selectedRoleIndex = 0; // 0: Household, 1: Collector
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String _statusMessage = '';
   
   final _formKey = GlobalKey<FormState>();
   final _contactController = TextEditingController();
@@ -43,10 +44,64 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     super.dispose();
   }
 
+  void _setStatus(String message) {
+    if (mounted) {
+      setState(() => _statusMessage = message);
+    }
+  }
+
+  /// Creates the user profile in Supabase with retry logic.
+  /// Returns true on success.
+  Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 20}) async {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        _setStatus('Creating profile (attempt $attempt/$maxAttempts)...');
+        
+        final supabase = Supabase.instance.client;
+        
+        // First check if profile already exists (e.g., from a previous partial attempt)
+        final existing = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (existing != null) {
+          _setStatus('Profile exists, continuing...');
+          return true; // Profile already created
+        }
+
+        // Create the profile
+        await supabase.from('profiles').insert({
+          'id': userId,
+          'full_name': _nameController.text.trim(),
+          'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
+          'eco_points': 500,
+          'co2_saved': 0,
+        });
+
+        _setStatus('Profile created successfully!');
+        return true;
+      } catch (e) {
+        debugPrint('Profile creation attempt $attempt/$maxAttempts failed: $e');
+        
+        if (attempt < maxAttempts) {
+          final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
+          _setStatus('Retrying in ${delay.inSeconds}s (attempt $attempt/$maxAttempts)...');
+          await Future.delayed(delay);
+        }
+      }
+    }
+    return false;
+  }
+
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Creating account...';
+    });
     
     try {
       final supabase = Supabase.instance.client;
@@ -54,31 +109,74 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ? '${_contactController.text.trim()}@phone.globalcoolers.app'
         : _contactController.text.trim();
       
-      final response = await supabase.auth.signUp(
-        email: email,
-        password: _passwordController.text.trim(),
-      );
-
-      if (response.user != null) {
-        // Insert profile into Supabase (backend also reads from this table)
-        await supabase.from('profiles').insert({
-          'id': response.user!.id,
-          'full_name': _nameController.text.trim(),
-          'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
-          'eco_points': 500,
-          'co2_saved': 0,
-        });
-
-        if (!mounted) return;
-
-        // Reload user data in the provider
-        await context.read<UserProvider>().loadUserData();
-
-        if (!mounted) return;
-        
-        final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
-        Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+      // Step 1: Auth signup with retry
+      AuthResponse? response;
+      Exception? authError;
+      
+      for (int attempt = 1; attempt <= 20; attempt++) {
+        try {
+          _setStatus('Signing up (attempt $attempt/20)...');
+          response = await supabase.auth.signUp(
+            email: email,
+            password: _passwordController.text.trim(),
+          );
+          if (response.user != null) break; // Success
+        } on AuthException catch (e) {
+          // Don't retry auth-specific errors like "email taken"
+          if (e.message.toLowerCase().contains('already registered') ||
+              e.message.toLowerCase().contains('already been registered') ||
+              e.message.toLowerCase().contains('duplicate')) {
+            throw e; // Re-throw immediately, no retry
+          }
+          authError = e;
+          debugPrint('Auth attempt $attempt failed: ${e.message}');
+          
+          if (attempt < 20) {
+            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
+            _setStatus('Retrying signup (${delay.inSeconds}s)...');
+            await Future.delayed(delay);
+          }
+        } catch (e) {
+          authError = e is Exception ? e : Exception(e.toString());
+          debugPrint('Auth attempt $attempt failed: $e');
+          
+          if (attempt < 20) {
+            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
+            _setStatus('Retrying signup (${delay.inSeconds}s)...');
+            await Future.delayed(delay);
+          }
+        }
       }
+
+      if (response?.user == null) {
+        throw authError ?? Exception('Signup failed after 20 attempts');
+      }
+
+      // Step 2: Create profile with retry
+      final profileCreated = await _createProfileWithRetry(response!.user!.id);
+      
+      if (!profileCreated) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created but profile setup failed. Please try logging in — your profile will be set up automatically.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+
+      if (!mounted) return;
+
+      // Step 3: Load user data in provider (also has its own retry)
+      _setStatus('Loading your data...');
+      await context.read<UserProvider>().loadUserData();
+
+      if (!mounted) return;
+      
+      _setStatus('Welcome to Global Coolers!');
+      final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +194,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = '';
+        });
+      }
     }
   }
 
@@ -375,7 +478,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -386,7 +489,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -447,7 +550,42 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 );
               }),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+
+              // Status message during loading
+              if (_statusMessage.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      if (_isLoading) ...[
+                        const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Text(
+                          _statusMessage,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -509,7 +647,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     )

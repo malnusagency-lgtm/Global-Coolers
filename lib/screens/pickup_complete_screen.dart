@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PickupCompleteScreen extends StatelessWidget {
-  const PickupCompleteScreen({Key? key}) : super(key: key);
+  const PickupCompleteScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

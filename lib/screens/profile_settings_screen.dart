@@ -7,7 +7,7 @@ import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
-  const ProfileSettingsScreen({Key? key}) : super(key: key);
+  const ProfileSettingsScreen({super.key});
 
   @override
   State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
@@ -107,7 +107,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.language, color: Colors.blue),
@@ -206,7 +206,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           borderRadius: BorderRadius.circular(16),
           // boxShadow: [
           //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.02),
+          //     color: Colors.black.withValues(alpha: 0.02),
           //     blurRadius: 5,
           //     offset: const Offset(0, 2),
           //   ),

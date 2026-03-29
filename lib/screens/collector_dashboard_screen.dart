@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 
 class CollectorDashboardScreen extends StatefulWidget {
-  const CollectorDashboardScreen({Key? key}) : super(key: key);
+  const CollectorDashboardScreen({super.key});
 
   @override
   State<CollectorDashboardScreen> createState() => _CollectorDashboardScreenState();

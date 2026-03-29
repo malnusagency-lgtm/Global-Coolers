@@ -6,5 +6,9 @@ class SupabaseConfig {
   static const String anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljYnhucm9idG5yanJreWFsdGpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjAyNDAsImV4cCI6MjA5MDAzNjI0MH0.BKExjd9NoWx0A2FAYJIgSNvsqHnx13l5vYM5-hsBhno';
 
   // Live Backend API URL (Render)
-  static const String apiBaseUrl = 'https://global-coolers-backend.onrender.com';
+  // static const String apiBaseUrl = 'https://global-coolers-backend.onrender.com';
+  
+  // Local Backend API URL (Node.js on port 5000)
+  // NOTE: If using Android Emulator, change localhost to 10.0.2.2
+  static const String apiBaseUrl = 'http://localhost:5000';
 }

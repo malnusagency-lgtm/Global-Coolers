@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
@@ -94,15 +94,15 @@ class SupabaseService {
   }
 
   /// Uploads a waste photo to Supabase Storage
-  Future<String?> uploadWastePhoto(File file) async {
+  Future<String?> uploadWastePhoto(Uint8List fileBytes, String extension) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return null;
 
-    final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$extension';
     final path = 'waste-photos/$fileName';
 
     try {
-      await _supabase.storage.from('waste-photos').upload(path, file);
+      await _supabase.storage.from('waste-photos').uploadBinary(path, fileBytes);
       
       // Get public URL
       final publicUrl = _supabase.storage.from('waste-photos').getPublicUrl(path);

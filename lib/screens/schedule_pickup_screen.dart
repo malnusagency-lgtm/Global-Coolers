@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_colors.dart';
@@ -19,7 +19,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   int _selectedDateIndex = 1; 
   int _selectedTimeSlot = 1; 
   bool _isLoading = false;
-  File? _imageFile;
+  Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage() async {
@@ -29,8 +29,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     );
 
     if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _imageFile = File(pickedFile.path);
+        _imageBytes = bytes;
       });
     }
   }
@@ -297,10 +298,10 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.grey.shade200),
                         ),
-                        child: _imageFile != null
+                        child: _imageBytes != null
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                child: Image.memory(_imageBytes!, fit: BoxFit.cover),
                               )
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -333,8 +334,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                     
                     try {
                       String? photoUrl;
-                      if (_imageFile != null) {
-                        photoUrl = await SupabaseService().uploadWastePhoto(_imageFile!);
+                      if (_imageBytes != null) {
+                        photoUrl = await SupabaseService().uploadWastePhoto(_imageBytes!, 'jpg');
                       }
 
                       final categoryName = _categories[_selectedCategoryIndex]['name'] as String;

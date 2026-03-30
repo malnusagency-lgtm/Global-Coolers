@@ -52,7 +52,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   /// Creates the user profile in Supabase with retry logic.
   /// Returns true on success.
-  Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 20}) async {
+  Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 3}) async {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         _setStatus('Creating profile (attempt $attempt/$maxAttempts)...');
@@ -113,9 +113,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       AuthResponse? response;
       Exception? authError;
       
-      for (int attempt = 1; attempt <= 20; attempt++) {
+      for (int attempt = 1; attempt <= 3; attempt++) {
         try {
-          _setStatus('Signing up (attempt $attempt/20)...');
+          _setStatus('Signing up (attempt $attempt/3)...');
           response = await supabase.auth.signUp(
             email: email,
             password: _passwordController.text.trim(),
@@ -131,7 +131,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           authError = e;
           debugPrint('Auth attempt $attempt failed: ${e.message}');
           
-          if (attempt < 20) {
+          if (attempt < 3) {
             final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
             _setStatus('Retrying signup (${delay.inSeconds}s)...');
             await Future.delayed(delay);
@@ -140,7 +140,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           authError = e is Exception ? e : Exception(e.toString());
           debugPrint('Auth attempt $attempt failed: $e');
           
-          if (attempt < 20) {
+          if (attempt < 3) {
             final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
             _setStatus('Retrying signup (${delay.inSeconds}s)...');
             await Future.delayed(delay);
@@ -149,7 +149,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       }
 
       if (response?.user == null) {
-        throw authError ?? Exception('Signup failed after 20 attempts');
+        throw authError ?? Exception('Signup failed after 3 attempts');
       }
 
       // Step 2: Create profile with retry

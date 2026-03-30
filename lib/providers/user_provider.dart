@@ -33,7 +33,7 @@ class UserProvider extends ChangeNotifier {
 
   /// Loads user data with retry logic (up to [maxAttempts] attempts).
   /// The Render backend may cold-start, so we retry with exponential backoff.
-  Future<void> loadUserData({int maxAttempts = 20}) async {
+  Future<void> loadUserData({int maxAttempts = 3}) async {
     _isLoading = true;
     _lastError = null;
     notifyListeners();

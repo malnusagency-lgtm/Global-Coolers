@@ -16,7 +16,8 @@ class ApiService {
 
   static Future<bool> healthCheck() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/health'));
+      final response = await http.get(Uri.parse('$_baseUrl/health'))
+          .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
       print('ApiService health check failed: $e');
@@ -30,7 +31,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/auth/profile/$userId'),
       headers: _headers,
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
@@ -45,7 +46,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/pickups/$userId'),
       headers: _headers,
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
@@ -71,7 +72,7 @@ class ApiService {
         'address': address,
         'photoUrl': photoUrl,
       }),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 201 && data['success'] == true) {
@@ -86,7 +87,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/rewards'),
       headers: _headers,
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
@@ -108,7 +109,7 @@ class ApiService {
         'rewardId': rewardId,
         'pointsCost': pointsCost,
       }),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     return response.statusCode == 200 && data['success'] == true;
@@ -120,7 +121,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/leaderboard'),
       headers: _headers,
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
@@ -148,7 +149,7 @@ class ApiService {
         'description': description,
         'photoUrl': photoUrl,
       }),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     return response.statusCode == 201 && data['success'] == true;
@@ -171,7 +172,7 @@ class ApiService {
       Uri.parse('$_baseUrl/api/auth/profile/$userId'),
       headers: _headers,
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);
     return response.statusCode == 200 && data['success'] == true;

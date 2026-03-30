@@ -75,13 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ? '${_contactController.text.trim()}@phone.globalcoolers.app'
         : _contactController.text.trim();
       
-      // Login with retry (up to 20 attempts for network resilience)
+      // Login with retry (up to 3 attempts for network resilience)
       AuthResponse? response;
       Exception? lastError;
 
-      for (int attempt = 1; attempt <= 20; attempt++) {
+      for (int attempt = 1; attempt <= 3; attempt++) {
         try {
-          _setStatus('Logging in (attempt $attempt/20)...');
+          _setStatus('Logging in (attempt $attempt/3)...');
           response = await supabase.auth.signInWithPassword(
             email: email,
             password: _passwordController.text.trim(),
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
           lastError = e;
           debugPrint('Login attempt $attempt failed: ${e.message}');
           
-          if (attempt < 20) {
+          if (attempt < 3) {
             final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
             _setStatus('Retrying (${delay.inSeconds}s)...');
             await Future.delayed(delay);
@@ -106,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
           lastError = e is Exception ? e : Exception(e.toString());
           debugPrint('Login attempt $attempt failed: $e');
           
-          if (attempt < 20) {
+          if (attempt < 3) {
             final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
             _setStatus('Retrying (${delay.inSeconds}s)...');
             await Future.delayed(delay);
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (response?.user == null) {
-        throw lastError ?? Exception('Login failed after 20 attempts');
+        throw lastError ?? Exception('Login failed after 3 attempts');
       }
 
       if (!mounted) return;

@@ -99,11 +99,11 @@ class ApiService {
 
   // ─── Leaderboard ───────────────────────────────────────────────
 
-  static Future<List<dynamic>> getLeaderboard() async {
+  static Future<List<dynamic>> getLeaderboard({String sortBy = 'co2_saved'}) async {
     final response = await _supabase
         .from('profiles')
         .select('id, full_name, eco_points, co2_saved')
-        .order('eco_points', ascending: false)
+        .order(sortBy, ascending: false)
         .limit(20);
     return response as List<dynamic>;
   }

@@ -13,14 +13,33 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  int _selectedToggle = 0; 
-  int _selectedPeriod = 0; 
+  int _selectedMetric = 0; // 0: CO2 Saved, 1: Eco Points
   late Future<List<dynamic>> _leaderboardFuture;
 
   @override
   void initState() {
     super.initState();
-    _leaderboardFuture = ApiService.getLeaderboard();
+    _fetchLeaderboard();
+  }
+
+  void _fetchLeaderboard() {
+    setState(() {
+      _leaderboardFuture = ApiService.getLeaderboard(
+        sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
+      );
+    });
+  }
+
+  String _formatMetric(dynamic value) {
+    final double metricVal = (value ?? 0.0) is int 
+        ? (value as int).toDouble() 
+        : (value as double? ?? 0.0);
+    
+    if (_selectedMetric == 0) {
+      return '${metricVal.toStringAsFixed(1)}kg';
+    } else {
+      return '${metricVal.toInt()} pts';
+    }
   }
 
   @override
@@ -32,52 +51,44 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Nairobi Leaderboard'),
+        title: const Text('Top Recyclers', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+        backgroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.share, color: AppColors.textPrimary), onPressed: () {}),
         ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            color: Colors.white,
             child: Column(
               children: [
-                // Toggle
+                // Toggle metric
                 Container(
-                  decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(30)),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(30)),
                   child: Row(
                     children: [
-                      _buildToggle('Individuals', 0),
-                      _buildToggle('Neighborhoods', 1),
+                      _buildToggle('CO2 Saved', 0),
+                      _buildToggle('Eco Points', 1),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Period Filter
-                Row(
-                  children: [
-                    _buildPeriodChip('This Week', 0),
-                    const SizedBox(width: 8),
-                    _buildPeriodChip('This Month', 1),
-                    const SizedBox(width: 8),
-                    _buildPeriodChip('All Time', 2),
-                  ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
           FutureBuilder<List<dynamic>>(
             future: _leaderboardFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Expanded(child: Center(child: CircularProgressIndicator()));
+                return const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.primary)));
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Expanded(child: Center(child: Text('No data found')));
+                return const Expanded(child: Center(child: Text('No rank data found. Be the first!')));
               }
 
               final users = snapshot.data!;
@@ -99,15 +110,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             children: [
                               // 2nd Place
                               if (top3.length > 1) 
-                                _buildPodiumItem(top3[1]['full_name'] ?? 'Alt', '${top3[1]['co2_saved']}kg', 2, 120, Colors.grey.shade200),
+                                _buildPodiumItem(top3[1]['full_name'] ?? 'Guest', _formatMetric(_selectedMetric == 0 ? top3[1]['co2_saved'] : top3[1]['eco_points']), 2, 120, Colors.grey.shade200),
                               const SizedBox(width: 8),
                               // 1st Place
                               if (top3.isNotEmpty)
-                                _buildPodiumItem(top3[0]['full_name'] ?? 'Winner', '${top3[0]['co2_saved']}kg', 1, 170, AppColors.primary.withValues(alpha: 0.15)),
+                                _buildPodiumItem(top3[0]['full_name'] ?? 'Champion', _formatMetric(_selectedMetric == 0 ? top3[0]['co2_saved'] : top3[0]['eco_points']), 1, 170, AppColors.primary.withValues(alpha: 0.15)),
                               const SizedBox(width: 8),
                               // 3rd Place
                               if (top3.length > 2)
-                                _buildPodiumItem(top3[2]['full_name'] ?? 'Alt', '${top3[2]['co2_saved']}kg', 3, 90, Colors.orange.withValues(alpha: 0.15)),
+                                _buildPodiumItem(top3[2]['full_name'] ?? 'Guest', _formatMetric(_selectedMetric == 0 ? top3[2]['co2_saved'] : top3[2]['eco_points']), 3, 90, Colors.orange.withValues(alpha: 0.15)),
                             ],
                           ),
                         ],
@@ -123,7 +134,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         itemCount: others.length,
                         itemBuilder: (context, index) {
                           final user = others[index];
-                          return _buildRankItem(index + 4, user['full_name'] ?? 'Guest', 'Nairobi', '${user['co2_saved']}kg');
+                          final amountStr = _formatMetric(_selectedMetric == 0 ? user['co2_saved'] : user['eco_points']);
+                          return _buildRankItem(index + 4, user['full_name'] ?? 'Anonymous', amountStr);
                         },
                       ),
                     ),
@@ -135,40 +147,45 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
           // "You" Sticky Bar
           Consumer<UserProvider>(
-            builder: (context, userProvider, _) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A2E1A),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(
-                children: [
-                  const Text('-', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
-                  const SizedBox(width: 16),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.3),
-                    child: const Icon(Icons.person, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(userProvider.userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Text('Keep going!', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                    ],
-                  ),
-                  const Spacer(),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('${userProvider.totalWasteDiverted}kg', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
-                      const Text('CO2 Saved', style: TextStyle(color: Colors.white60, fontSize: 11)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            builder: (context, userProvider, _) {
+              final valStr = _selectedMetric == 0 
+                  ? '${userProvider.totalWasteDiverted}kg'
+                  : '${userProvider.points} pts';
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A2E1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    const Text('★', style: TextStyle(color: AppColors.accent, fontSize: 18)),
+                    const SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.3),
+                      child: const Icon(Icons.person, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(userProvider.userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text('Your Current Ranking', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                      ],
+                    ),
+                    const Spacer(),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(valStr, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text(_selectedMetric == 0 ? 'CO2 Saved' : 'Total Points', style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -184,10 +201,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildToggle(String label, int index) {
-    final isSelected = _selectedToggle == index;
+    final isSelected = _selectedMetric == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedToggle = index),
+        onTap: () {
+          if (_selectedMetric != index) {
+            _selectedMetric = index;
+            _fetchLeaderboard();
+          }
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -203,22 +225,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _buildPeriodChip(String label, int index) {
-    final isSelected = _selectedPeriod == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPeriod = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: isSelected ? Border.all(color: AppColors.primary.withValues(alpha: 0.3)) : null,
-        ),
-        child: Text(label, style: TextStyle(color: isSelected ? AppColors.primary : AppColors.textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal, fontSize: 13)),
-      ),
-    );
-  }
-
   Widget _buildPodiumItem(String name, String amount, int rank, double height, Color bgColor) {
     final bool isFirst = rank == 1;
     return Column(
@@ -227,23 +233,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         if (isFirst) const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
         if (isFirst) const SizedBox(height: 4),
         Container(
-          width: isFirst ? 80 : 60,
-          height: isFirst ? 80 : 60,
+          width: isFirst ? 70 : 56,
+          height: isFirst ? 70 : 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: isFirst ? AppColors.primary : Colors.grey.shade300, width: isFirst ? 3 : 2),
-            color: Colors.grey.shade200,
+            color: Colors.white,
           ),
-          child: Center(child: Icon(Icons.person, size: isFirst ? 40 : 28, color: Colors.grey)),
+          child: Center(child: Icon(Icons.person, size: isFirst ? 32 : 24, color: Colors.grey)),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: rank == 1 ? AppColors.primary : (rank == 2 ? Colors.grey : Colors.orange),
-            borderRadius: BorderRadius.circular(8),
+            color: rank == 1 ? AppColors.primary : (rank == 2 ? Colors.grey.shade700 : Colors.orange.shade700),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Text('#$rank', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          child: Text('#$rank', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         Container(
           width: isFirst ? 110 : 90,
@@ -251,18 +257,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           margin: const EdgeInsets.only(top: 8),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: isFirst ? 16 : 13)),
+              Text(
+                name.split(' ').first, 
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: isFirst ? 15 : 13),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.eco, color: AppColors.primary, size: 14),
-                  const SizedBox(width: 2),
-                  Text(amount, style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: isFirst ? 14 : 12)),
+                  Icon(_selectedMetric == 0 ? Icons.eco : Icons.star, color: AppColors.primary, size: 14),
+                  const SizedBox(width: 4),
+                  Text(amount, style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: isFirst ? 13 : 11)),
                 ],
               ),
             ],
@@ -272,7 +283,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _buildRankItem(int rank, String name, String location, String amount) {
+  Widget _buildRankItem(int rank, String name, String amount) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -283,28 +294,24 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       ),
       child: Row(
         children: [
-          Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textSecondary)),
-          const SizedBox(width: 16),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.grey.shade200,
-            child: const Icon(Icons.person, color: Colors.grey),
+          SizedBox(
+            width: 30,
+            child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textSecondary)),
           ),
-          const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            child: const Icon(Icons.person, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(location, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-              ],
-            ),
+            child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(amount, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text('CO2 Saved', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              Text(_selectedMetric == 0 ? 'Saved' : 'Earned', style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
             ],
           ),
         ],

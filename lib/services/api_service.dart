@@ -138,6 +138,16 @@ class ApiService {
     }
   }
 
+  // ─── Challenges ──────────────────────────────────────────────
+  
+  static Future<List<dynamic>> getChallenges() async {
+    final response = await _supabase
+        .from('challenges')
+        .select('*')
+        .order('ends_at', ascending: true);
+    return response as List<dynamic>;
+  }
+
   // ─── Update Profile (e.g. location for collectors) ─────────────
 
   static Future<bool> updateProfile({

@@ -23,7 +23,7 @@ class UserProvider extends ChangeNotifier {
   String get email => _email;
   String get phone => _phone;
   AppRole get role => _role;
-  int get ecoPoints => _ecoPoints;
+  int get ecoPoints => _ecoPoints < 0 ? 0 : _ecoPoints;
   int get totalWasteDiverted => _totalWasteDiverted;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;

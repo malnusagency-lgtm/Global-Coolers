@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 class ImpactStatsScreen extends StatefulWidget {
   const ImpactStatsScreen({super.key});
@@ -13,7 +15,11 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
   int _selectedPeriod = 1; // 0=Week, 1=Month, 2=Year
 
   @override
-  Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+    final totalWaste = userProvider.totalWasteDiverted > 0 ? userProvider.totalWasteDiverted : 0;
+    final treesSaved = (totalWaste / 21).toStringAsFixed(1);
+    final co2Reduced = totalWaste.toString();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -82,7 +88,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('145', style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.textPrimary, height: 1)),
+                      Text('$totalWaste', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.textPrimary, height: 1)),
                       const SizedBox(width: 8),
                       const Padding(
                         padding: EdgeInsets.only(bottom: 8),
@@ -99,7 +105,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
                           children: [
                             Icon(Icons.trending_up, color: AppColors.success, size: 14),
                             const SizedBox(width: 2),
-                            Text('12%', style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.bold)),
+                            const Text('Live', style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -146,7 +152,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text('Global Impact', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                           Text('You vs. Nairobi Goal', style: TextStyle(color: Colors.white60, fontSize: 12)),
                         ],
@@ -157,7 +163,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('0.3', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, height: 1)),
+                      Text((totalWaste > 0 ? (totalWaste * 0.01).toStringAsFixed(2) : '0.0'), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, height: 1)),
                       const Text('%', style: TextStyle(color: Colors.white60, fontSize: 20)),
                       const Spacer(),
                       const Text('of city goal', style: TextStyle(color: Colors.white60, fontSize: 12)),
@@ -187,9 +193,9 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
             // Waste Breakdown
             Row(
               children: [
-                Expanded(child: _buildWasteBreakdownCard('PLASTIC', '24 kg', Icons.recycling, Colors.blue)),
+                Expanded(child: _buildWasteBreakdownCard('PLASTIC', '${(totalWaste * 0.4).toStringAsFixed(1)} kg', Icons.recycling, Colors.blue)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildWasteBreakdownCard('ORGANIC', '85 kg', Icons.eco, Colors.orange)),
+                Expanded(child: _buildWasteBreakdownCard('ORGANIC', '${(totalWaste * 0.6).toStringAsFixed(1)} kg', Icons.eco, Colors.orange)),
               ],
             ),
 
@@ -208,9 +214,9 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
               ),
               child: Column(
                 children: [
-                  _buildEnvMetric(Icons.park, AppColors.primary, 'Trees Saved', 'Equivalent impact', '4.2'),
+                  _buildEnvMetric(Icons.park, AppColors.primary, 'Trees Saved', 'Equivalent impact', treesSaved),
                   const Divider(height: 24),
-                  _buildEnvMetric(Icons.cloud_off, Colors.blueGrey, 'CO2 Reduced', 'Emissions prevented', '120 kg'),
+                  _buildEnvMetric(Icons.cloud_off, Colors.blueGrey, 'CO2 Reduced', 'Emissions prevented', '$co2Reduced kg'),
                 ],
               ),
             ),

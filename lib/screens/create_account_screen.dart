@@ -221,9 +221,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       if (!mounted) return;
       
-      _setStatus('Welcome to Global Coolers! 🌍');
-      await Future.delayed(const Duration(milliseconds: 500));
-      
+      // Step 5: Show Success Dialog
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Column(
+            children: [
+              Icon(Icons.stars, color: AppColors.primary, size: 60),
+              SizedBox(height: 16),
+              Text('Welcome!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Congratulations! You\'ve successfully created your account and earned a 500 Eco-Points bonus to start your journey. 🌍',
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Let\'s Go!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      );
+
       if (!mounted) return;
       final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
       Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);

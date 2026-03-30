@@ -36,56 +36,53 @@
       background-color: #ffffff;
       margin: 0;
       overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      display: grid;
+      place-items: center;
+      height: 100dvh; /* Dynamic viewport height for mobile */
       width: 100vw;
     }
     #global-coolers-loader {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      text-align: center;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .icon-box {
-      width: 100px;
-      height: 100px;
+      width: 120px;
+      height: 120px;
       background-color: #ffffff;
-      border-radius: 25px;
-      box-shadow: 0 10px 20px rgba(76, 175, 80, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 24px;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px rgba(76, 175, 80, 0.2);
+      display: grid;
+      place-items: center;
+      margin: 0 auto 30px;
       animation: pulse 1.5s infinite ease-in-out alternate;
     }
     .icon {
-      width: 60px;
-      height: 60px;
-      fill: #4CAF50; /* AppColors.primary */
+      width: 70px;
+      height: 70px;
+      fill: #4CAF50;
     }
     h1 {
       margin: 0;
       color: #333333;
-      font-size: 28px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
     }
     h1 span {
       color: #4CAF50;
     }
     .spinner {
-      margin-top: 24px;
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(76, 175, 80, 0.2);
+      margin: 30px auto 0;
+      width: 36px;
+      height: 36px;
+      border: 3.5px solid rgba(76, 175, 80, 0.15);
       border-radius: 50%;
       border-top-color: #4CAF50;
-      animation: spin 1s infinite linear;
+      animation: spin 0.8s infinite linear;
     }
     @keyframes pulse {
-      0% { transform: scale(0.95); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.1); }
-      100% { transform: scale(1.05); box-shadow: 0 15px 30px rgba(76, 175, 80, 0.3); }
+      0% { transform: scale(0.96); opacity: 0.95; }
+      100% { transform: scale(1.04); opacity: 1; }
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -95,10 +92,9 @@
 <body>
   <div id="global-coolers-loader">
     <div class="icon-box">
-      <!-- SVG of Material Icons.eco -->
-      <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M0 0h24v24H0z" fill="none"/>
-        <path d="M19.36 2.72L20.78 4.14L15.06 9.85C16.13 11.39 16.28 13.24 15.38 14.44L9.06 8.12C10.26 7.22 12.11 7.37 13.65 8.44L19.36 2.72ZM5.93 17.57C4.1 15.74 3.73 13.11 4.79 10.96L3.38 9.54L5.5 8.12L6.92 9.54C9.07 8.48 11.7 8.85 13.53 10.68C14.77 11.92 15.3 13.67 15.04 15.34L19.33 19.63L18.63 20.33L14.34 16.04C12.67 16.3 10.92 15.77 9.68 14.53L10.74 13.47C11.59 14.32 12.87 14.54 13.9 14.05L6.44 6.59C5.95 7.62 6.17 8.9 7.02 9.75L5.96 10.81C4.72 9.57 4.19 7.82 4.45 6.15L3.38 5.08L5.5 3.66L6.57 4.73C8.72 3.67 11.35 4.04 13.18 5.87C14.42 7.11 14.95 8.86 14.69 10.53L18.98 14.82L18.28 15.52L13.99 11.23C12.32 11.49 10.57 10.96 9.33 9.72L8.27 8.66C7.42 9.51 6.14 9.73 5.11 9.24L12.57 16.7C13.06 15.67 12.84 14.39 11.99 13.54L13.05 12.48C14.29 13.72 14.82 15.47 14.56 17.14L15.63 18.21L13.51 19.63L12.44 18.56C10.29 19.62 7.66 19.25 5.83 17.42L5.93 17.57Z"/>
+      <!-- Clean Eco Leaf SVG -->
+      <svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L9.33,12.03C14,10.6 15,10.16 17,8ZM11,5H7V1L1,1V5H3V21.34C3.12,21.6 3.25,21.86 3.39,22.12C3.54,22.4 3.71,22.68 3.89,22.95C4.08,23.15 4.29,23.35 4.51,23.53C4.74,23.71 4.98,23.88 5.25,24H21V22H5.25C5.12,22 5,21.88 5,21.75V5H11V1H15V5H17V3H21V5H23V1H11V5Z"/>
       </svg>
     </div>
     <h1>Global <span>Coolers</span></h1>

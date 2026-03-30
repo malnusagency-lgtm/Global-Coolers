@@ -41,7 +41,7 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
                               children: [
                                 const Icon(Icons.location_on, color: AppColors.primary, size: 16),
                                 const SizedBox(width: 4),
-                                Text(userProvider.address ?? 'Nairobi, Kenya', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const Text('Nairobi, Kenya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 const Icon(Icons.keyboard_arrow_down, size: 18),
                               ],
                             ),

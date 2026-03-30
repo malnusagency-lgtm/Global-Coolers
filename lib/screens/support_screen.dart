@@ -3,13 +3,14 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/user_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
 
+  @override
+  Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
-    final userName = userProvider.fullName?.split(' ').first ?? 'there';
+    final userName = userProvider.fullName.split(' ').first;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -120,17 +121,10 @@ class SupportScreen extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final Uri emailUri = Uri(
-                              scheme: 'mailto',
-                              path: 'support@globalcoolers.com',
-                              queryParameters: {
-                                'subject': 'Support Request - ${userProvider.fullName}',
-                              },
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Opening email to support@globalcoolers.com')),
                             );
-                            if (await canLaunchUrl(emailUri)) {
-                              await launchUrl(emailUri);
-                            }
                           },
                           icon: const Icon(Icons.email_outlined),
                           label: const Text('Send us an Email'),

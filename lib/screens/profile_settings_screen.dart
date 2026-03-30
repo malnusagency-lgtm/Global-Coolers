@@ -93,59 +93,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               
               const SizedBox(height: 32),
               
-              // Language Switch
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.language, color: Colors.blue),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Language / Lugha',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          isEnglish ? 'English' : 'Kiswahili',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        Switch(
-                          value: isEnglish,
-                          onChanged: (val) {
-                            localeProvider.toggleLocale();
-                          },
-                          activeTrackColor: AppColors.primary,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               
               const Text(
                 'Account Settings',
@@ -162,13 +110,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 _showEditProfileDialog(context, userProvider);
               }),
               _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Address book coming soon!')));
+                Navigator.pushNamed(context, '/my-address');
               }),
               _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card, () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment methods coming soon!')));
+                Navigator.pushNamed(context, '/payment-methods');
               }),
               _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none, () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification settings coming soon!')));
+                Navigator.pushNamed(context, '/notifications');
               }),
               
               const SizedBox(height: 24),

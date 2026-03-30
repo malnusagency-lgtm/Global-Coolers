@@ -22,6 +22,20 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _addressController = TextEditingController(text: 'Plot 45, Kilimani Estate, Nairobi');
+  final FocusNode _addressFocusNode = FocusNode();
+
+  int get _estimatedCost {
+    final name = _categories[_selectedCategoryIndex]['name'] as String;
+    switch (name) {
+      case 'Organic': return 100;
+      case 'Plastic': return 200;
+      case 'Paper': return 200;
+      case 'Metal': return 250;
+      case 'E-waste': return 350;
+      case 'Hazardous': return 500;
+      default: return 200;
+    }
+  }
 
   @override
   void dispose() {
@@ -119,6 +133,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                                 const SizedBox(height: 4),
                                 TextField(
                                   controller: _addressController,
+                                  focusNode: _addressFocusNode,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textPrimary,
@@ -132,7 +147,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                           ),
                           TextButton(
                             onPressed: () {
-                              // Focuses the text field visually by moving focus to it or just generic edit
+                              _addressFocusNode.requestFocus();
                             },
                             child: const Text('Edit'),
                           ),
@@ -313,9 +328,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                               fontSize: 16,
                             ),
                           ),
-                          const Text(
-                            'KES 200',
-                            style: TextStyle(
+                          Text(
+                            'KES $_estimatedCost',
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 20,
                               color: AppColors.textPrimary,

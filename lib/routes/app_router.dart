@@ -20,6 +20,9 @@ import '../screens/community_challenges_screen.dart';
 import '../screens/impact_stats_screen.dart';
 import '../screens/pickup_confirmation_screen.dart';
 import '../screens/qr_scanner_screen.dart';
+import '../screens/my_address_screen.dart';
+import '../screens/payment_methods_screen.dart';
+import '../screens/scan_waste_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -69,6 +72,12 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const QRScannerScreen());
       case '/support':
         return MaterialPageRoute(builder: (_) => const SupportScreen());
+      case '/my-address':
+        return MaterialPageRoute(builder: (_) => const MyAddressScreen());
+      case '/payment-methods':
+        return MaterialPageRoute(builder: (_) => const PaymentMethodsScreen());
+      case '/scan-waste':
+        return MaterialPageRoute(builder: (_) => const ScanWasteScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

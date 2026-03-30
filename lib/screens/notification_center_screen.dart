@@ -65,30 +65,97 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> wit
   }
 
   Widget _buildNotificationList(String filter) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'No notifications',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+    // Simulated notification data
+    final notifications = [
+      {
+        'title': 'Welcome to Global Coolers! 🌍',
+        'desc': 'You\'ve received 500 Eco-Points as a signup bonus. Start recycling today!',
+        'time': 'Just now',
+        'icon': Icons.stars_rounded,
+        'color': AppColors.primary,
+        'isSystem': true,
+      },
+      {
+        'title': 'Pickup Confirmed 🚛',
+        'desc': 'A collector is on the way to pick up your plastic waste.',
+        'time': '2 hours ago',
+        'icon': Icons.local_shipping_outlined,
+        'color': AppColors.info,
+        'isSystem': false,
+      },
+      {
+        'title': 'New Challenge Available! 🏆',
+        'desc': 'Join the "Nairobi Clean-up" challenge and earn 1000 points.',
+        'time': '1 day ago',
+        'icon': Icons.emoji_events_outlined,
+        'color': AppColors.warning,
+        'isSystem': true,
+      },
+    ];
+
+    final filtered = filter == 'All' 
+        ? notifications 
+        : filter == 'System' 
+            ? notifications.where((n) => n['isSystem'] as bool).toList()
+            : notifications.where((n) => !(n['isSystem'] as bool)).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text('No notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final n = filtered[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'You\'re all caught up!',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: (n['color'] as Color).withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(n['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(n['desc'] as String, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+                    const SizedBox(height: 8),
+                    Text(n['time'] as String, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

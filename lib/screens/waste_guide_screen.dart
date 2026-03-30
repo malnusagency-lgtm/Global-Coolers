@@ -121,8 +121,7 @@ class WasteGuideScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // Open camera or scanner
-          // Navigator.pushNamed(context, '/scan-waste');
+          Navigator.pushNamed(context, '/scan-waste');
         },
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.center_focus_weak, color: Colors.white),

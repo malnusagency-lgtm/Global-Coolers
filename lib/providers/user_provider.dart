@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 enum AppRole { resident, collector }
@@ -31,12 +32,11 @@ class UserProvider extends ChangeNotifier {
     await loadUserData();
   }
 
-  /// Loads user data. Since we now connect directly to Supabase via ApiService,
-  /// there are no cold-start delays and we only need a basic request.
+  /// Loads user data with Instant Offline Caching.
+  /// First instantly paints the dashboard with cached data, then quietly updates from Supabase.
   Future<void> loadUserData() async {
     _isLoading = true;
     _lastError = null;
-    notifyListeners();
 
     try {
       final currentUser = Supabase.instance.client.auth.currentUser;
@@ -48,6 +48,21 @@ class UserProvider extends ChangeNotifier {
 
       _userId = currentUser.id;
 
+      // 1. FAST PATH: Pull locally cached data for instant UI
+      final prefs = await SharedPreferences.getInstance();
+      final cachedName = prefs.getString('cache_userName');
+      if (cachedName != null) {
+        _userName = cachedName;
+        _ecoPoints = prefs.getInt('cache_ecoPoints') ?? 0;
+        _totalWasteDiverted = prefs.getInt('cache_co2') ?? 0;
+        _role = (prefs.getString('cache_role') == 'collector') ? AppRole.collector : AppRole.resident;
+        _isLoading = false; // Turn off spinner immediately!
+        notifyListeners();
+      } else {
+        notifyListeners(); // Show spinner if completely cold
+      }
+
+      // 2. BACKGROUND UPDATES: Fetch latest values explicitly
       final data = await ApiService.getUserProfile(_userId);
       _userName = data['full_name'] ?? 'Guest';
       _ecoPoints = data['eco_points'] ?? 0;
@@ -55,13 +70,26 @@ class UserProvider extends ChangeNotifier {
       _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
       _lastError = null;
 
+      // Update Local cache quietly
+      await prefs.setString('cache_userName', _userName);
+      await prefs.setInt('cache_ecoPoints', _ecoPoints);
+      await prefs.setInt('cache_co2', _totalWasteDiverted);
+      await prefs.setString('cache_role', _role == AppRole.collector ? 'collector' : 'resident');
+
     } catch (e) {
-      _lastError = e.toString();
-      _userName = 'Guest';
-      debugPrint('Failed to load user data: $e');
+      if (_userName.isEmpty || _userName == 'Guest') {
+        _lastError = e.toString();
+        _userName = 'Guest';
+      }
+      debugPrint('Failed to fetch latest user data: $e');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      } else {
+        // Just silently notify if we already stopped the spinner for cache
+        notifyListeners();
+      }
     }
   }
 
@@ -96,6 +124,11 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     await Supabase.instance.client.auth.signOut();
+    
+    // Wipe local cache entirely for privacy
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
     _userId = '';
     _userName = '';
     _ecoPoints = 0;

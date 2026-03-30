@@ -141,6 +141,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             await Future.delayed(delay);
           }
         } catch (e) {
+          final msg = e.toString().toLowerCase();
+          if (msg.contains('already registered') ||
+              msg.contains('already been registered') ||
+              msg.contains('duplicate') ||
+              msg.contains('rate') ||
+              msg.contains('limit') ||
+              msg.contains('exceeded')) {
+            throw e; // Re-throw immediately, no retry
+          }
+          
           authError = e is Exception ? e : Exception(e.toString());
           debugPrint('Auth attempt $attempt failed: $e');
           

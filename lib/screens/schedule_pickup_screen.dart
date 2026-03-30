@@ -499,10 +499,5 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
   }
 }

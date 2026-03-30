@@ -13,6 +13,7 @@ class UserProvider extends ChangeNotifier {
   AppRole _role = AppRole.resident;
   int _ecoPoints = 0;
   int _totalWasteDiverted = 0;
+  String? _address;
   
   bool _isLoading = true;
   String? _lastError;
@@ -25,6 +26,8 @@ class UserProvider extends ChangeNotifier {
   AppRole get role => _role;
   int get ecoPoints => _ecoPoints < 0 ? 0 : _ecoPoints;
   int get totalWasteDiverted => _totalWasteDiverted;
+  String? get address => _address;
+  String get fullName => _userName;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
@@ -62,6 +65,7 @@ class UserProvider extends ChangeNotifier {
         _role = (prefs.getString('cache_role') == 'collector') ? AppRole.collector : AppRole.resident;
         _email = prefs.getString('cache_email') ?? '';
         _phone = prefs.getString('cache_phone') ?? '';
+        _address = prefs.getString('cache_address');
         _isLoading = false; // Turn off spinner immediately!
         notifyListeners();
       } else {
@@ -92,6 +96,7 @@ class UserProvider extends ChangeNotifier {
         _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
         _email = data['email'] ?? currentUser.email ?? '';
         _phone = data['phone'] ?? '';
+        _address = data['address'];
         _lastError = null;
 
         // Update local cache quietly
@@ -101,6 +106,7 @@ class UserProvider extends ChangeNotifier {
         await prefs.setString('cache_role', _role == AppRole.collector ? 'collector' : 'resident');
         await prefs.setString('cache_email', _email);
         await prefs.setString('cache_phone', _phone);
+        if (_address != null) await prefs.setString('cache_address', _address!);
       } else if (_userName.isEmpty || _userName == 'User') {
         // Profile doesn't exist yet — use auth email as fallback
         _userName = currentUser.email?.split('@').first ?? 'User';

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/user_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final userName = userProvider.fullName?.split(' ').first ?? 'there';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -29,10 +33,10 @@ class SupportScreen extends StatelessWidget {
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Welcome back, Juma!', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                        SizedBox(height: 4),
-                        Text(
+                      children: [
+                        Text('Hey $userName,', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        const Text(
                           'How can we help\nyou today?',
                           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
@@ -116,7 +120,18 @@ class SupportScreen extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: () async {
+                            final Uri emailUri = Uri(
+                              scheme: 'mailto',
+                              path: 'support@globalcoolers.com',
+                              queryParameters: {
+                                'subject': 'Support Request - ${userProvider.fullName}',
+                              },
+                            );
+                            if (await canLaunchUrl(emailUri)) {
+                              await launchUrl(emailUri);
+                            }
+                          },
                           icon: const Icon(Icons.email_outlined),
                           label: const Text('Send us an Email'),
                           style: ElevatedButton.styleFrom(

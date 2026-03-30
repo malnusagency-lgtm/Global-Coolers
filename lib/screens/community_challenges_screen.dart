@@ -41,7 +41,7 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
                               children: [
                                 const Icon(Icons.location_on, color: AppColors.primary, size: 16),
                                 const SizedBox(width: 4),
-                                const Text('Nairobi, Kenya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(userProvider.address ?? 'Nairobi, Kenya', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 const Icon(Icons.keyboard_arrow_down, size: 18),
                               ],
                             ),
@@ -250,13 +250,21 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      final title = challenge['title'] ?? 'Challenge';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Joined $title! Let\'s go 🚀'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isUpcoming ? const Color(0xFF1A2E1A) : AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(isUpcoming ? 'Join Early' : 'Check In'),
+                    child: Text(isUpcoming ? 'Join Early' : 'Join Challenge'),
                   ),
                 ),
               ],

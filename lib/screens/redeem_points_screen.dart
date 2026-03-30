@@ -193,6 +193,8 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
                       reward['title'] ?? 'Reward', 
                       reward['partner'] ?? 'Partner', 
                       reward['cost'] ?? 500,
+                      reward['icon_name'],
+                      reward['color_hex'],
                     )).toList(),
                   );
                 },
@@ -214,9 +216,29 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
     );
   }
 
-  Widget _buildProductCard(BuildContext context, String id, String name, String subtitle, int points) {
+  Widget _buildProductCard(BuildContext context, String id, String name, String subtitle, int points, String? iconName, String? colorHex) {
     final currentPoints = context.watch<UserProvider>().ecoPoints;
     final canRedeem = currentPoints >= points;
+
+    Color parseColor(String? hex) {
+      if (hex == null || hex.isEmpty) return AppColors.primary;
+      try {
+        return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+      } catch (_) {
+        return AppColors.primary;
+      }
+    }
+
+    IconData mapIcon(String? icon) {
+      switch (icon) {
+        case 'account_balance_wallet': return Icons.account_balance_wallet;
+        case 'shopping_cart': return Icons.shopping_cart;
+        case 'phone_android': return Icons.phone_android;
+        case 'eco': return Icons.eco;
+        case 'wb_sunny': return Icons.wb_sunny;
+        default: return Icons.card_giftcard;
+      }
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -234,8 +256,14 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
               Container(
                 height: 100,
                 width: double.infinity,
-                color: Colors.grey.shade100,
-                child: const Center(child: Icon(Icons.card_giftcard, size: 36, color: Colors.grey)),
+                color: parseColor(colorHex).withValues(alpha: 0.1),
+                child: Center(
+                  child: Icon(
+                    mapIcon(iconName), 
+                    size: 36, 
+                    color: parseColor(colorHex),
+                  ),
+                ),
               ),
               Positioned(
                 top: 8,

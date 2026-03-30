@@ -15,6 +15,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
   int _selectedPeriod = 1; // 0=Week, 1=Month, 2=Year
 
   @override
+  Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final totalWaste = userProvider.totalWasteDiverted > 0 ? userProvider.totalWasteDiverted : 0;
     final treesSaved = (totalWaste / 21).toStringAsFixed(1);

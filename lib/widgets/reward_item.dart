@@ -6,6 +6,8 @@ class RewardItem extends StatelessWidget {
   final String subtitle;
   final int points;
   final String imageAsset;
+  final String? iconName;
+  final String? colorHex;
   final VoidCallback onRedeem;
   final bool canAfford;
 
@@ -15,9 +17,31 @@ class RewardItem extends StatelessWidget {
     required this.subtitle,
     required this.points,
     required this.imageAsset,
+    this.iconName,
+    this.colorHex,
     required this.onRedeem,
     required this.canAfford,
   });
+
+  Color _parseColor(String? hex) {
+    if (hex == null || hex.isEmpty) return AppColors.primary;
+    try {
+      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return AppColors.primary;
+    }
+  }
+
+  IconData _mapIcon(String? name) {
+    switch (name) {
+      case 'account_balance_wallet': return Icons.account_balance_wallet;
+      case 'shopping_cart': return Icons.shopping_cart;
+      case 'phone_android': return Icons.phone_android;
+      case 'eco': return Icons.eco;
+      case 'wb_sunny': return Icons.wb_sunny;
+      default: return Icons.card_giftcard;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +65,15 @@ class RewardItem extends StatelessWidget {
           Container(
             height: 100,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: _parseColor(colorHex).withValues(alpha: 0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              // In a real app, use Image.asset or network here
             ),
             child: Center(
-              child: Icon(Icons.card_giftcard, size: 40, color: Colors.grey.shade400),
+              child: Icon(
+                _mapIcon(iconName), 
+                size: 44, 
+                color: _parseColor(colorHex),
+              ),
             ),
           ),
           Padding(

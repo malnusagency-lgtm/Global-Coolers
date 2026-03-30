@@ -39,7 +39,7 @@ class AppRouter {
       case '/schedule-pickup':
         return MaterialPageRoute(builder: (_) => const SchedulePickupScreen());
       case '/live-tracking':
-        return MaterialPageRoute(builder: (_) => const LiveTrackingScreen());
+        return MaterialPageRoute(builder: (_) => const LiveTrackingScreen(), settings: settings);
       case '/rewards':
         return MaterialPageRoute(builder: (_) => const RewardsScreen());
       case '/report-issue':

@@ -18,17 +18,21 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   StreamSubscription? _locationSubscription;
   final SupabaseService _supabaseService = SupabaseService();
   String _eta = '12 mins';
+  bool _isInit = false;
 
   @override
-  void initState() {
-    super.initState();
-    _startTracking();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInit) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final collectorId = args?['collectorId'] ?? 'DEMO_COLLECTOR_ID';
+      _startTracking(collectorId);
+      _isInit = true;
+    }
   }
 
-  void _startTracking() {
-    // In a real app, we'd pass the collectorId to track. 
-    // Here we'll listen for any collector updates or a specific demo ID.
-    _locationSubscription = _supabaseService.streamLocation('DEMO_COLLECTOR_ID').listen((data) {
+  void _startTracking(String collectorId) {
+    _locationSubscription = _supabaseService.streamLocation(collectorId).listen((data) {
       if (data.isNotEmpty) {
         final profile = data.first;
         if (profile['latitude'] != null && profile['longitude'] != null) {

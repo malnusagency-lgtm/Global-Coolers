@@ -190,7 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Active Pickup
                     if (activePickup != null)
                       GestureDetector(
-                        onTap: () => Navigator.pushNamed(context, '/live-tracking'),
+                        onTap: () => Navigator.pushNamed(
+                          context, 
+                          '/live-tracking',
+                          arguments: {'collectorId': activePickup['collector_id'] ?? 'DEMO_COLLECTOR_ID'}
+                        ),
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(

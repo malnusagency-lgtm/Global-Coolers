@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:math';
 
 /// Centralized API service that communicates directly with Supabase.
 /// This bypasses the old Render Node.js backend to explicitly eliminate 
@@ -47,6 +48,9 @@ class ApiService {
     required String address,
     String? photoUrl,
   }) async {
+    final random = Random();
+    final qrCode = 'GC-${DateTime.now().millisecondsSinceEpoch}-${random.nextInt(9999)}';
+
     final response = await _supabase.from('pickups').insert({
       'user_id': userId,
       'date': date,
@@ -54,6 +58,7 @@ class ApiService {
       'address': address,
       'status': 'scheduled',
       'photo_url': photoUrl,
+      'qr_code': qrCode,
     }).select().single();
 
     return response;

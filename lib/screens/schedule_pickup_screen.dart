@@ -355,10 +355,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                       );
                       
                       if (!mounted) return;
-                      // Fetch the created pickup to get the QR code (Supabase returns it by default or we can let Supabase generate it)
-                      // For now, we'll assume the UUID is generated and we can pass a dummy or fetch it
+                      
                       Navigator.pushNamed(context, '/pickup-confirmation', arguments: {
-                        'qrCode': 'PICKUP_${DateTime.now().millisecondsSinceEpoch}',
+                        'qrCode': pickup['qr_code'],
                         'wasteType': categoryName,
                       }); 
                     } catch (e) {

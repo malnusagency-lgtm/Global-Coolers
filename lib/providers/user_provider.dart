@@ -8,6 +8,8 @@ enum AppRole { resident, collector }
 class UserProvider extends ChangeNotifier {
   String _userId = '';
   String _userName = '';
+  String _email = '';
+  String _phone = '';
   AppRole _role = AppRole.resident;
   int _ecoPoints = 0;
   int _totalWasteDiverted = 0;
@@ -18,6 +20,8 @@ class UserProvider extends ChangeNotifier {
   // Getters
   String get userId => _userId;
   String get userName => _userName;
+  String get email => _email;
+  String get phone => _phone;
   AppRole get role => _role;
   int get ecoPoints => _ecoPoints;
   int get totalWasteDiverted => _totalWasteDiverted;
@@ -56,30 +60,58 @@ class UserProvider extends ChangeNotifier {
         _ecoPoints = prefs.getInt('cache_ecoPoints') ?? 0;
         _totalWasteDiverted = prefs.getInt('cache_co2') ?? 0;
         _role = (prefs.getString('cache_role') == 'collector') ? AppRole.collector : AppRole.resident;
+        _email = prefs.getString('cache_email') ?? '';
+        _phone = prefs.getString('cache_phone') ?? '';
         _isLoading = false; // Turn off spinner immediately!
         notifyListeners();
       } else {
         notifyListeners(); // Show spinner if completely cold
       }
 
-      // 2. BACKGROUND UPDATES: Fetch latest values explicitly
-      final data = await ApiService.getUserProfile(_userId);
-      _userName = data['full_name'] ?? 'Guest';
-      _ecoPoints = data['eco_points'] ?? 0;
-      _totalWasteDiverted = data['co2_saved'] ?? 0;
-      _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
-      _lastError = null;
+      // 2. BACKGROUND UPDATES: Fetch latest values from Supabase
+      Map<String, dynamic>? data;
+      Exception? fetchError;
+      
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          data = await ApiService.getUserProfile(_userId);
+          break;
+        } catch (e) {
+          fetchError = e is Exception ? e : Exception(e.toString());
+          debugPrint('getUserProfile attempt $attempt failed: $e');
+          if (attempt < 3) {
+            await Future.delayed(Duration(milliseconds: 500 * attempt));
+          }
+        }
+      }
 
-      // Update Local cache quietly
-      await prefs.setString('cache_userName', _userName);
-      await prefs.setInt('cache_ecoPoints', _ecoPoints);
-      await prefs.setInt('cache_co2', _totalWasteDiverted);
-      await prefs.setString('cache_role', _role == AppRole.collector ? 'collector' : 'resident');
+      if (data != null) {
+        _userName = data['full_name'] ?? 'User';
+        _ecoPoints = data['eco_points'] ?? 0;
+        _totalWasteDiverted = data['co2_saved'] ?? 0;
+        _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
+        _email = data['email'] ?? currentUser.email ?? '';
+        _phone = data['phone'] ?? '';
+        _lastError = null;
+
+        // Update local cache quietly
+        await prefs.setString('cache_userName', _userName);
+        await prefs.setInt('cache_ecoPoints', _ecoPoints);
+        await prefs.setInt('cache_co2', _totalWasteDiverted);
+        await prefs.setString('cache_role', _role == AppRole.collector ? 'collector' : 'resident');
+        await prefs.setString('cache_email', _email);
+        await prefs.setString('cache_phone', _phone);
+      } else if (_userName.isEmpty || _userName == 'User') {
+        // Profile doesn't exist yet — use auth email as fallback
+        _userName = currentUser.email?.split('@').first ?? 'User';
+        _email = currentUser.email ?? '';
+        _lastError = fetchError?.toString();
+      }
 
     } catch (e) {
-      if (_userName.isEmpty || _userName == 'Guest') {
+      if (_userName.isEmpty || _userName == 'User') {
         _lastError = e.toString();
-        _userName = 'Guest';
+        _userName = 'User';
       }
       debugPrint('Failed to fetch latest user data: $e');
     } finally {
@@ -87,7 +119,6 @@ class UserProvider extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       } else {
-        // Just silently notify if we already stopped the spinner for cache
         notifyListeners();
       }
     }
@@ -131,6 +162,8 @@ class UserProvider extends ChangeNotifier {
 
     _userId = '';
     _userName = '';
+    _email = '';
+    _phone = '';
     _ecoPoints = 0;
     _totalWasteDiverted = 0;
     _role = AppRole.resident;

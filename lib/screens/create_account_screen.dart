@@ -12,14 +12,14 @@ class CreateAccountScreen extends StatefulWidget {
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  bool _isPhone = true;
   int _selectedRoleIndex = 0; // 0: Household, 1: Collector
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _statusMessage = '';
   
   final _formKey = GlobalKey<FormState>();
-  final _contactController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
 
@@ -38,7 +38,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   @override
   void dispose() {
-    _contactController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -51,15 +52,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   /// Creates the user profile in Supabase with retry logic.
-  /// Returns true on success.
-  Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 3}) async {
+  Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 5}) async {
+    final phone = '+254${_phoneController.text.replaceAll(RegExp(r'\D'), '')}';
+    
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         _setStatus('Creating profile (attempt $attempt/$maxAttempts)...');
         
         final supabase = Supabase.instance.client;
         
-        // First check if profile already exists (e.g., from a previous partial attempt)
+        // First check if profile already exists
         final existing = await supabase
             .from('profiles')
             .select('id')
@@ -67,15 +69,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             .maybeSingle();
 
         if (existing != null) {
-          _setStatus('Profile exists, continuing...');
-          return true; // Profile already created
+          // Profile exists — update it with the latest info
+          _setStatus('Updating profile info...');
+          await supabase.from('profiles').update({
+            'full_name': _nameController.text.trim(),
+            'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
+            'phone': phone,
+            'email': _emailController.text.trim(),
+          }).eq('id', userId);
+          return true;
         }
 
-        // Create the profile
+        // Create the profile with ALL user information
         await supabase.from('profiles').insert({
           'id': userId,
           'full_name': _nameController.text.trim(),
           'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
+          'phone': phone,
+          'email': _emailController.text.trim(),
           'eco_points': 500,
           'co2_saved': 0,
         });
@@ -86,8 +97,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         debugPrint('Profile creation attempt $attempt/$maxAttempts failed: $e');
         
         if (attempt < maxAttempts) {
-          final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-          _setStatus('Retrying in ${delay.inSeconds}s (attempt $attempt/$maxAttempts)...');
+          final delay = Duration(milliseconds: (800 * attempt).clamp(800, 5000));
+          _setStatus('Retrying profile setup in ${delay.inSeconds}s...');
           await Future.delayed(delay);
         }
       }
@@ -100,74 +111,96 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Creating account...';
+      _statusMessage = 'Creating your account...';
     });
     
     try {
       final supabase = Supabase.instance.client;
-      final String email = _isPhone 
-        ? '${_contactController.text.replaceAll(RegExp(r'\\D'), '')}@phone.globalcoolers.app'
-        : _contactController.text.trim();
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
       
       // Step 1: Auth signup with retry
       AuthResponse? response;
       Exception? authError;
       
-      for (int attempt = 1; attempt <= 3; attempt++) {
+      for (int attempt = 1; attempt <= 5; attempt++) {
         try {
-          _setStatus('Signing up (attempt $attempt/3)...');
+          _setStatus('Creating account (attempt $attempt/5)...');
           response = await supabase.auth.signUp(
             email: email,
-            password: _passwordController.text.trim(),
+            password: password,
+            data: {
+              'full_name': _nameController.text.trim(),
+              'phone': '+254${_phoneController.text.replaceAll(RegExp(r'\D'), '')}',
+            },
           );
-          if (response.user != null) break; // Success
+          
+          if (response.user != null) {
+            _setStatus('Account created!');
+            break;
+          }
         } on AuthException catch (e) {
-          // Don't retry auth-specific errors like "email taken" or "rate limit"
           final msg = e.message.toLowerCase();
+          // Don't retry for definitive auth errors
           if (msg.contains('already registered') ||
               msg.contains('already been registered') ||
               msg.contains('duplicate') ||
+              msg.contains('user already exists') ||
               msg.contains('rate') ||
               msg.contains('limit') ||
-              msg.contains('exceeded')) {
-            throw e; // Re-throw immediately, no retry
+              msg.contains('exceeded') ||
+              msg.contains('invalid') ||
+              msg.contains('weak password')) {
+            rethrow;
           }
           authError = e;
           debugPrint('Auth attempt $attempt failed: ${e.message}');
           
-          if (attempt < 3) {
-            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-            _setStatus('Retrying signup (${delay.inSeconds}s)...');
+          if (attempt < 5) {
+            final delay = Duration(milliseconds: (800 * attempt).clamp(800, 5000));
+            _setStatus('Retrying in ${delay.inSeconds}s...');
             await Future.delayed(delay);
           }
         } catch (e) {
           final msg = e.toString().toLowerCase();
           if (msg.contains('already registered') ||
-              msg.contains('already been registered') ||
               msg.contains('duplicate') ||
               msg.contains('rate') ||
-              msg.contains('limit') ||
-              msg.contains('exceeded')) {
-            throw e; // Re-throw immediately, no retry
+              msg.contains('limit')) {
+            rethrow;
           }
           
           authError = e is Exception ? e : Exception(e.toString());
           debugPrint('Auth attempt $attempt failed: $e');
           
-          if (attempt < 3) {
-            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-            _setStatus('Retrying signup (${delay.inSeconds}s)...');
+          if (attempt < 5) {
+            final delay = Duration(milliseconds: (800 * attempt).clamp(800, 5000));
+            _setStatus('Retrying in ${delay.inSeconds}s...');
             await Future.delayed(delay);
           }
         }
       }
 
       if (response?.user == null) {
-        throw authError ?? Exception('Signup failed after 3 attempts');
+        throw authError ?? Exception('Signup failed after 5 attempts. Please check your internet connection.');
       }
 
-      // Step 2: Create profile with retry
-      final profileCreated = await _createProfileWithRetry(response!.user!.id);
+      // Step 2: Auto sign-in if needed (some Supabase configs require confirmation)
+      if (response!.session == null) {
+        _setStatus('Signing you in...');
+        try {
+          await supabase.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+        } catch (e) {
+          debugPrint('Auto sign-in failed (email confirmation may be required): $e');
+          // Continue anyway — profile creation will use the user ID we already have
+        }
+      }
+
+      // Step 3: Create profile with retry
+      final profileCreated = await _createProfileWithRetry(response.user!.id);
       
       if (!profileCreated) {
         if (!mounted) return;
@@ -182,13 +215,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       if (!mounted) return;
 
-      // Step 3: Load user data in provider (also has its own retry)
+      // Step 4: Load user data
       _setStatus('Loading your data...');
       await context.read<UserProvider>().loadUserData();
 
       if (!mounted) return;
       
-      _setStatus('Welcome to Global Coolers!');
+      _setStatus('Welcome to Global Coolers! 🌍');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
       final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
       Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
     } on AuthException catch (e) {
@@ -197,6 +233,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         SnackBar(
           content: Text(e.message),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
@@ -205,6 +242,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         SnackBar(
           content: Text('Error: $e'),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -249,7 +287,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Sign up to start managing or collecting waste efficiently.',
+                'Both email and phone number are required to create your account.',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.textSecondary,
@@ -257,59 +295,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Phone / Email Toggle
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    _buildToggleOption('Phone', _isPhone, () {
-                      setState(() => _isPhone = true);
-                      _contactController.clear();
-                    }),
-                    _buildToggleOption('Email', !_isPhone, () {
-                      setState(() => _isPhone = false);
-                      _contactController.clear();
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Full Name
-              const Text(
-                'Full Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                ),
-              ),
+              // ─── Full Name ─────────────────────────────────────
+              _buildLabel('Full Name'),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Muthoni Njeri',
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                  prefixIcon: const Icon(Icons.person_outline, size: 20),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                  ),
+                decoration: _inputDecoration(
+                  hint: 'e.g. Muthoni Njeri',
+                  prefixIcon: Icons.person_outline,
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) return 'Enter your full name';
@@ -318,117 +312,83 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 },
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // Contact Input
-              Text(
-                _isPhone ? 'Phone Number' : 'Email Address',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                ),
-              ),
+              // ─── Email Address (MANDATORY) ──────────────────────
+              _buildLabel('Email Address'),
               const SizedBox(height: 8),
-              if (_isPhone)
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: const Text(
-                        '+254',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _contactController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          hintText: '7XX XXX XXX',
-                          hintStyle: TextStyle(color: Colors.grey.shade400),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Enter phone number';
-                          if (value.length < 9) return 'Invalid phone number';
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                )
-              else
-                TextFormField(
-                  controller: _contactController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'name@example.com',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDecoration(
+                  hint: 'name@example.com',
+                  prefixIcon: Icons.email_outlined,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return 'Email is required';
+                  final trimmed = value.trim();
+                  if (!trimmed.contains('@') || !trimmed.contains('.')) {
+                    return 'Enter a valid email address';
+                  }
+                  if (trimmed.length < 5) return 'Email is too short';
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // ─── Phone Number (MANDATORY) ───────────────────────
+              _buildLabel('Phone Number'),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    child: const Text(
+                      '+254',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Enter email address';
-                    if (!value.contains('@') || !value.contains('.')) return 'Invalid email address';
-                    return null;
-                  },
-                ),
-
-              const SizedBox(height: 16),
-
-              // Password
-              const Text(
-                'Password',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration(
+                        hint: '7XX XXX XXX',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Phone number is required';
+                        final digits = value.replaceAll(RegExp(r'\D'), '');
+                        if (digits.length < 9) return 'Enter a valid phone number';
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
               ),
+
+              const SizedBox(height: 20),
+
+              // ─── Password ──────────────────────────────────────
+              _buildLabel('Password'),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: 'Min 6 characters',
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                  prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                decoration: _inputDecoration(
+                  hint: 'Min 6 characters',
+                  prefixIcon: Icons.lock_outline,
+                ).copyWith(
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -437,23 +397,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                  ),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Enter password';
+                  if (value == null || value.isEmpty) return 'Enter a password';
                   if (value.length < 6) return 'Minimum 6 characters';
                   return null;
                 },
@@ -461,7 +407,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
               const SizedBox(height: 32),
 
-              // Role Selection
+              // ─── Role Selection ────────────────────────────────
               const Text(
                 'I am a:',
                 style: TextStyle(
@@ -650,44 +596,43 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  Widget _buildToggleOption(String title, bool isSelected, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    )
-                  ]
-                : null,
-          ),
-          margin: const EdgeInsets.all(4),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (title == 'Phone') 
-                Icon(Icons.phone_android, size: 16, color: isSelected ? AppColors.primary : AppColors.textSecondary),
-              if (title == 'Email') 
-                Icon(Icons.email_outlined, size: 16, color: isSelected ? AppColors.primary : AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 14,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({required String hint, IconData? prefixIcon}) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.error, width: 2),
       ),
     );
   }

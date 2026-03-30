@@ -150,7 +150,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             builder: (context, userProvider, _) {
               final valStr = _selectedMetric == 0 
                   ? '${userProvider.totalWasteDiverted}kg'
-                  : '${userProvider.points} pts';
+                  : '${userProvider.ecoPoints} pts';
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 decoration: const BoxDecoration(

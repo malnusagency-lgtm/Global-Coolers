@@ -12,18 +12,17 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _isPhone = false; // Default to email for login
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _statusMessage = '';
   
   final _formKey = GlobalKey<FormState>();
-  final _contactController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _contactController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -35,8 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// Ensures a profile exists for the given user. If not, creates one.
-  /// This handles edge cases where auth succeeded but profile creation failed.
-  Future<void> _ensureProfileExists(String userId) async {
+  Future<void> _ensureProfileExists(String userId, String email) async {
     try {
       final supabase = Supabase.instance.client;
       final existing = await supabase
@@ -49,8 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _setStatus('Setting up your profile...');
         await supabase.from('profiles').insert({
           'id': userId,
-          'full_name': 'User',
+          'full_name': email.split('@').first,
           'role': 'resident',
+          'email': email,
           'eco_points': 500,
           'co2_saved': 0,
         });
@@ -71,75 +70,78 @@ class _LoginScreenState extends State<LoginScreen> {
     
     try {
       final supabase = Supabase.instance.client;
-      final String email = _isPhone 
-        ? '${_contactController.text.replaceAll(RegExp(r'\\D'), '')}@phone.globalcoolers.app'
-        : _contactController.text.trim();
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
       
-      // Login with retry (up to 3 attempts for network resilience)
+      // Login with retry (up to 5 attempts for network resilience)
       AuthResponse? response;
       Exception? lastError;
 
-      for (int attempt = 1; attempt <= 3; attempt++) {
+      for (int attempt = 1; attempt <= 5; attempt++) {
         try {
-          _setStatus('Logging in (attempt $attempt/3)...');
+          _setStatus('Logging in (attempt $attempt/5)...');
           response = await supabase.auth.signInWithPassword(
             email: email,
-            password: _passwordController.text.trim(),
+            password: password,
           );
-          if (response.user != null) break;
+          if (response.user != null) {
+            _setStatus('Logged in!');
+            break;
+          }
         } on AuthException catch (e) {
           final msg = e.message.toLowerCase();
-          // Don't retry for wrong credentials or rate limits
+          // Don't retry for definitive errors
           if (msg.contains('invalid') ||
               msg.contains('credentials') ||
               msg.contains('not found') ||
               msg.contains('rate') ||
               msg.contains('limit') ||
-              msg.contains('exceeded')) {
-            throw e; // Break immediately
+              msg.contains('exceeded') ||
+              msg.contains('email not confirmed')) {
+            rethrow;
           }
           lastError = e;
           debugPrint('Login attempt $attempt failed: ${e.message}');
           
-          if (attempt < 3) {
-            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-            _setStatus('Retrying (${delay.inSeconds}s)...');
+          if (attempt < 5) {
+            final delay = Duration(milliseconds: (800 * attempt).clamp(800, 5000));
+            _setStatus('Retrying in ${delay.inSeconds}s...');
             await Future.delayed(delay);
           }
         } catch (e) {
           final msg = e.toString().toLowerCase();
           if (msg.contains('invalid') || msg.contains('rate') || msg.contains('limit')) {
-            throw e;
+            rethrow;
           }
           lastError = e is Exception ? e : Exception(e.toString());
           debugPrint('Login attempt $attempt failed: $e');
           
-          if (attempt < 3) {
-            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-            _setStatus('Retrying (${delay.inSeconds}s)...');
+          if (attempt < 5) {
+            final delay = Duration(milliseconds: (800 * attempt).clamp(800, 5000));
+            _setStatus('Retrying in ${delay.inSeconds}s...');
             await Future.delayed(delay);
           }
         }
       }
 
       if (response?.user == null) {
-        throw lastError ?? Exception('Login failed after 3 attempts');
+        throw lastError ?? Exception('Login failed after 5 attempts. Check your internet connection.');
       }
 
       if (!mounted) return;
 
       // Ensure profile exists (handles edge case from failed signup)
-      await _ensureProfileExists(response!.user!.id);
+      await _ensureProfileExists(response!.user!.id, email);
 
       if (!mounted) return;
 
-      // Load user data with its own retry logic
+      // Load user data
       _setStatus('Loading your data...');
       await context.read<UserProvider>().loadUserData();
 
       if (!mounted) return;
       
-      // Check user role to navigate
+      // Navigate based on role
       final userProvider = context.read<UserProvider>();
       final route = userProvider.role == AppRole.collector 
           ? '/collector-dashboard' 
@@ -151,6 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(e.message),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
@@ -159,6 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text('Error: $e'),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -219,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Log in to continue managing your waste collection.',
+                  'Log in with your email and password to continue.',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -228,121 +232,33 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Phone / Email Toggle
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildToggleOption('Email', !_isPhone, () {
-                        setState(() => _isPhone = false);
-                        _contactController.clear();
-                      }),
-                      _buildToggleOption('Phone', _isPhone, () {
-                        setState(() => _isPhone = true);
-                        _contactController.clear();
-                      }),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Contact Input
-                Text(
-                  _isPhone ? 'Phone Number' : 'Email Address',
-                  style: const TextStyle(
+                // ─── Email Address ────────────────────────────────
+                const Text(
+                  'Email Address',
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (_isPhone)
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: const Text(
-                          '+254',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _contactController,
-                          keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
-                            hintText: '7XX XXX XXX',
-                            hintStyle: TextStyle(color: Colors.grey.shade400),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'Enter phone number';
-                            if (value.length < 9) return 'Invalid phone number';
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  TextFormField(
-                    controller: _contactController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      hintText: 'name@example.com',
-                      hintStyle: TextStyle(color: Colors.grey.shade400),
-                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Enter email address';
-                      if (!value.contains('@')) return 'Invalid email address';
-                      return null;
-                    },
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _inputDecoration(
+                    hint: 'name@example.com',
+                    prefixIcon: Icons.email_outlined,
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Enter your email';
+                    if (!value.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // Password
+                // ─── Password ─────────────────────────────────────
                 const Text(
                   'Password',
                   style: TextStyle(
@@ -355,10 +271,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your password',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                  decoration: _inputDecoration(
+                    hint: 'Enter your password',
+                    prefixIcon: Icons.lock_outline,
+                  ).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -367,23 +283,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                    ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Enter password';
+                    if (value == null || value.isEmpty) return 'Enter your password';
                     return null;
                   },
                 ),
@@ -475,39 +377,32 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildToggleOption(String title, bool isSelected, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))]
-                : null,
-          ),
-          margin: const EdgeInsets.all(4),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                title == 'Phone' ? Icons.phone_android : Icons.email_outlined,
-                size: 16,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+  InputDecoration _inputDecoration({required String hint, IconData? prefixIcon}) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.error, width: 2),
       ),
     );
   }

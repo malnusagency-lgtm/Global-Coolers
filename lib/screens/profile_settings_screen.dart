@@ -136,7 +136,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                           onChanged: (val) {
                             localeProvider.toggleLocale();
                           },
-                          activeColor: AppColors.primary,
+                          activeTrackColor: AppColors.primary,
                         ),
                       ],
                     ),

@@ -12,7 +12,6 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.accent,
         surface: AppColors.surface,
-        background: AppColors.background,
       ),
       useMaterial3: true,
       textTheme: GoogleFonts.poppinsTextTheme().copyWith(

@@ -145,7 +145,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
                           }
                         });
                       },
-                      activeColor: AppColors.success,
+                      activeTrackColor: AppColors.success,
                     ),
                   ],
                 ),

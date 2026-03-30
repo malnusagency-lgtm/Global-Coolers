@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
+import '../services/api_service.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -79,9 +80,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const Text(
-                      'Account Profile',
-                      style: TextStyle(
+                    Text(
+                      userProvider.phone.isNotEmpty ? userProvider.phone : userProvider.email,
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
                       ),
@@ -157,10 +158,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               
               const SizedBox(height: 16),
               
-              _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline, () {}),
-              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, () {}),
-              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card, () {}),
-              _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none, () {}),
+              _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline, () {
+                _showEditProfileDialog(context, userProvider);
+              }),
+              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Address book coming soon!')));
+              }),
+              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card, () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment methods coming soon!')));
+              }),
+              _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none, () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification settings coming soon!')));
+              }),
               
               const SizedBox(height: 24),
               Text(
@@ -176,7 +185,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _buildSettingItem(l10n.translate('help_support'), Icons.help_outline, () {
                  Navigator.pushNamed(context, '/support');
               }),
-              _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline, () {}),
+              _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline, () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Privacy Policy opening...')));
+              }),
               _buildSettingItem(l10n.translate('log_out'), Icons.logout, () async {
                 await userProvider.signOut();
                 if (!mounted) return;
@@ -236,6 +247,59 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context, UserProvider provider) {
+    final nameController = TextEditingController(text: provider.userName);
+    final phoneController = TextEditingController(text: provider.phone);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Full Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(labelText: 'Phone Number (e.g. +254...)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await ApiService.updateProfile(
+                userId: provider.userId,
+                fullName: nameController.text.trim(),
+                phone: phoneController.text.trim(),
+              );
+
+              if (success && ctx.mounted) {
+                Navigator.pop(ctx);
+                await provider.loadUserData(); // Refresh the provider with new DB info
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully!')));
+                }
+              } else if (ctx.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile.')));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }

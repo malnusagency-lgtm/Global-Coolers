@@ -16,11 +16,18 @@ class SchedulePickupScreen extends StatefulWidget {
 
 class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   int _selectedCategoryIndex = 0;
-  int _selectedDateIndex = 1; 
-  int _selectedTimeSlot = 1; 
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
   bool _isLoading = false;
   Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
+  final TextEditingController _addressController = TextEditingController(text: 'Plot 45, Kilimani Estate, Nairobi');
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     final XFile? pickedFile = await _picker.pickImage(
@@ -110,18 +117,23 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                const Text(
-                                  'Plot 45, Kilimani Estate, Nairobi',
-                                  style: TextStyle(
+                                TextField(
+                                  controller: _addressController,
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textPrimary,
+                                  ),
+                                  decoration: const InputDecoration.collapsed(
+                                    hintText: 'Enter pickup address',
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              // Focuses the text field visually by moving focus to it or just generic edit
+                            },
                             child: const Text('Edit'),
                           ),
                         ],
@@ -156,93 +168,129 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                     
                     const SizedBox(height: 32),
                     
-                    // Date Selection
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Select Date',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          currentMonthYear,
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 80,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: 7,
-                        itemBuilder: (context, index) {
-                          final date = now.add(Duration(days: index));
-                          final isSelected = _selectedDateIndex == index;
-                           
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() => _selectedDateIndex = index);
-                            },
-                            child: Container(
-                              width: 60,
-                              margin: const EdgeInsets.only(right: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primary : Colors.transparent,
-                                borderRadius: BorderRadius.circular(16),
-                                border: isSelected ? null : Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    weekDays[date.weekday - 1],
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isSelected ? Colors.white : AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${date.day}',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected ? Colors.white : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Time Slot
-                    const Text(
-                      'Pickup Time',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    // Date & Time Selection via Material Pickers
                     Row(
                       children: [
-                        Expanded(child: _buildTimeSlot('Morning', '8:00 - 11:00 AM', 0)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildTimeSlot('Afternoon', '1:00 - 4:00 PM', 1)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select Date',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () async {
+                                  final now = DateTime.now();
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: now.add(const Duration(days: 1)),
+                                    firstDate: now.add(const Duration(days: 1)), // Only future dates
+                                    lastDate: now.add(const Duration(days: 30)), // Up to 1 month ahead
+                                    builder: (context, child) {
+                                      return Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: const ColorScheme.light(
+                                            primary: AppColors.primary,
+                                            onPrimary: Colors.white,
+                                            onSurface: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        child: child!,
+                                      );
+                                    },
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _selectedDate = picked);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: _selectedDate != null ? AppColors.primary : Colors.grey.shade300),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_today, size: 18, color: _selectedDate != null ? AppColors.primary : Colors.grey.shade500),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _selectedDate != null 
+                                            ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}' 
+                                            : 'Pick a Date',
+                                        style: TextStyle(
+                                          color: _selectedDate != null ? AppColors.textPrimary : Colors.grey.shade500,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select Time',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: const TimeOfDay(hour: 9, minute: 0),
+                                    builder: (context, child) {
+                                      return Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: const ColorScheme.light(
+                                            primary: AppColors.primary,
+                                            onPrimary: Colors.white,
+                                            onSurface: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        child: child!,
+                                      );
+                                    },
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _selectedTime = picked);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: _selectedTime != null ? AppColors.primary : Colors.grey.shade300),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.access_time, size: 18, color: _selectedTime != null ? AppColors.primary : Colors.grey.shade500),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _selectedTime != null 
+                                            ? _selectedTime!.format(context)
+                                            : 'Pick Time',
+                                        style: TextStyle(
+                                          color: _selectedTime != null ? AppColors.textPrimary : Colors.grey.shade500,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                     
@@ -340,17 +388,23 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                       final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
                       final userId = context.read<UserProvider>().userId;
                       
+                      if (_selectedDate == null || _selectedTime == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please select both a date and a time for the pickup.')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+
                       // Build a human-readable date from selection
-                      final now = DateTime.now();
-                      final selectedDate = now.add(Duration(days: _selectedDateIndex));
-                      final timeSlotLabel = _selectedTimeSlot == 0 ? '8:00 - 11:00 AM' : '1:00 - 4:00 PM';
-                      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')} $timeSlotLabel';
+                      final timeSlotLabel = _selectedTime!.format(context);
+                      final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')} $timeSlotLabel';
 
                       final pickup = await ApiService.schedulePickup(
                         userId: userId,
                         date: dateStr,
                         wasteType: categoryName, 
-                        address: 'Plot 45, Kilimani Estate, Nairobi',
+                        address: _addressController.text.trim(),
                         photoUrl: photoUrl,
                       );
                       
@@ -435,52 +489,5 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     );
   }
 
-  Widget _buildTimeSlot(String label, String time, int index) {
-    final isSelected = _selectedTimeSlot == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedTimeSlot = index);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-                if (isSelected)
-                  const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              time,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

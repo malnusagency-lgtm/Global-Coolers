@@ -143,11 +143,13 @@ class ApiService {
   static Future<bool> updateProfile({
     required String userId,
     String? fullName,
+    String? phone,
     double? latitude,
     double? longitude,
   }) async {
     final updates = <String, dynamic>{};
     if (fullName != null) updates['full_name'] = fullName;
+    if (phone != null) updates['phone'] = phone;
     if (latitude != null) updates['latitude'] = latitude;
     if (longitude != null) updates['longitude'] = longitude;
 

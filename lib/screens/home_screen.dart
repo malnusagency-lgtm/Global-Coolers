@@ -190,11 +190,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Active Pickup
                     if (activePickup != null)
                       GestureDetector(
-                        onTap: () => Navigator.pushNamed(
-                          context, 
-                          '/live-tracking',
-                          arguments: {'collectorId': activePickup['collector_id'] ?? 'DEMO_COLLECTOR_ID'}
-                        ),
+                        onTap: () {
+                          final collectorId = activePickup['collector_id'];
+                          if (collectorId == null || collectorId.toString().isEmpty || activePickup['status'] == 'scheduled') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('A collector has not been assigned yet.')),
+                            );
+                            return;
+                          }
+                          Navigator.pushNamed(
+                            context, 
+                            '/live-tracking',
+                            arguments: {'collectorId': collectorId}
+                          );
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -244,12 +253,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue,
+                                  color: (activePickup['collector_id'] == null) ? Colors.grey.shade400 : Colors.blue,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
-                                  'Live Map',
-                                  style: TextStyle(
+                                child: Text(
+                                  (activePickup['collector_id'] == null) ? 'Waiting...' : 'Live Map',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -304,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ...recentActivity.map((p) => ActivityItem(
                             title: '${p['waste_type'] ?? p['wasteType'] ?? 'Pickup'} Completed',
                             timestamp: p['date'] ?? 'Recently',
-                            points: 50,
+                            points: p['points_awarded'] ?? 50,
                             icon: Icons.check_circle_rounded,
                             iconColor: AppColors.success,
                             backgroundColor: const Color(0xFFE8F5E9),

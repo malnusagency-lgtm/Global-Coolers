@@ -31,16 +31,80 @@
 
   <title>global_coolers</title>
   <link rel="manifest" href="manifest.json">
+<style>
+    body {
+      background-color: #ffffff;
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+    }
+    #global-coolers-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .icon-box {
+      width: 100px;
+      height: 100px;
+      background-color: #ffffff;
+      border-radius: 25px;
+      box-shadow: 0 10px 20px rgba(76, 175, 80, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      animation: pulse 1.5s infinite ease-in-out alternate;
+    }
+    .icon {
+      width: 60px;
+      height: 60px;
+      fill: #4CAF50; /* AppColors.primary */
+    }
+    h1 {
+      margin: 0;
+      color: #333333;
+      font-size: 28px;
+    }
+    h1 span {
+      color: #4CAF50;
+    }
+    .spinner {
+      margin-top: 24px;
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(76, 175, 80, 0.2);
+      border-radius: 50%;
+      border-top-color: #4CAF50;
+      animation: spin 1s infinite linear;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.1); }
+      100% { transform: scale(1.05); box-shadow: 0 15px 30px rgba(76, 175, 80, 0.3); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <div id="global-coolers-loader">
+    <div class="icon-box">
+      <!-- SVG of Material Icons.eco -->
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M0 0h24v24H0z" fill="none"/>
+        <path d="M19.36 2.72L20.78 4.14L15.06 9.85C16.13 11.39 16.28 13.24 15.38 14.44L9.06 8.12C10.26 7.22 12.11 7.37 13.65 8.44L19.36 2.72ZM5.93 17.57C4.1 15.74 3.73 13.11 4.79 10.96L3.38 9.54L5.5 8.12L6.92 9.54C9.07 8.48 11.7 8.85 13.53 10.68C14.77 11.92 15.3 13.67 15.04 15.34L19.33 19.63L18.63 20.33L14.34 16.04C12.67 16.3 10.92 15.77 9.68 14.53L10.74 13.47C11.59 14.32 12.87 14.54 13.9 14.05L6.44 6.59C5.95 7.62 6.17 8.9 7.02 9.75L5.96 10.81C4.72 9.57 4.19 7.82 4.45 6.15L3.38 5.08L5.5 3.66L6.57 4.73C8.72 3.67 11.35 4.04 13.18 5.87C14.42 7.11 14.95 8.86 14.69 10.53L18.98 14.82L18.28 15.52L13.99 11.23C12.32 11.49 10.57 10.96 9.33 9.72L8.27 8.66C7.42 9.51 6.14 9.73 5.11 9.24L12.57 16.7C13.06 15.67 12.84 14.39 11.99 13.54L13.05 12.48C14.29 13.72 14.82 15.47 14.56 17.14L15.63 18.21L13.51 19.63L12.44 18.56C10.29 19.62 7.66 19.25 5.83 17.42L5.93 17.57Z"/>
+      </svg>
+    </div>
+    <h1>Global <span>Coolers</span></h1>
+    <div class="spinner"></div>
+  </div>
+  <!-- Standard Flutter script loading -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

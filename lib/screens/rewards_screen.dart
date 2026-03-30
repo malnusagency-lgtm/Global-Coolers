@@ -190,11 +190,20 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           subtitle: reward['partner'],
                           points: reward['cost'],
                           imageAsset: '',
-                          onRedeem: () {
-                            // Logic to redeem
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Redeeming ${reward['title']}...')),
+                          onRedeem: () async {
+                            final success = await userProvider.redeemReward(
+                              reward['cost'] as int,
+                              rewardId: reward['id'].toString(), // Adjust based on schema
                             );
+                            if (success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Successfully redeemed ${reward['title']}!')),
+                              );
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to redeem reward. Please check your points.')),
+                              );
+                            }
                           },
                           canAfford: userProvider.ecoPoints >= reward['cost'],
                         );

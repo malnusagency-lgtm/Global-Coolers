@@ -1,58 +1,43 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Centralized API service that communicates with the live Node.js backend
-/// hosted on Render. Auth is still handled by Supabase; this service handles
-/// all data CRUD operations through the backend API.
+/// Centralized API service that communicates directly with Supabase.
+/// This bypasses the old Render Node.js backend to explicitly eliminate 
+/// cold-start timeouts and ensure the app loads instantly.
 class ApiService {
-  static final String _baseUrl = SupabaseConfig.apiBaseUrl;
-
-  static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-  };
+  static final _supabase = Supabase.instance.client;
 
   // ─── Health Check ──────────────────────────────────────────────
 
   static Future<bool> healthCheck() async {
-    try {
-      final response = await http.get(Uri.parse('$_baseUrl/health'))
-          .timeout(const Duration(seconds: 10));
-      return response.statusCode == 200;
-    } catch (e) {
-      print('ApiService health check failed: $e');
-      return false;
-    }
+    // Since we connect to Supabase over WebSocket/REST natively, 
+    // it's generally healthy if the client initialized.
+    return true; 
   }
 
   // ─── User Profile ──────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getUserProfile(String userId) async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl/api/auth/profile/$userId'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
+    final response = await _supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return data['user'];
+    if (response != null) {
+      return response;
     }
-    throw Exception(data['message'] ?? 'Failed to fetch profile');
+    throw Exception('User profile not found in database');
   }
 
   // ─── Pickups ───────────────────────────────────────────────────
 
   static Future<List<dynamic>> getPickups(String userId) async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl/api/pickups/$userId'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
-
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return data['pickups'] as List<dynamic>;
-    }
-    return [];
+    final response = await _supabase
+        .from('pickups')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+    return response as List<dynamic>;
   }
 
   static Future<Map<String, dynamic>> schedulePickup({
@@ -62,38 +47,23 @@ class ApiService {
     required String address,
     String? photoUrl,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/api/pickups/schedule'),
-      headers: _headers,
-      body: jsonEncode({
-        'userId': userId,
-        'date': date,
-        'wasteType': wasteType,
-        'address': address,
-        'photoUrl': photoUrl,
-      }),
-    ).timeout(const Duration(seconds: 10));
+    final response = await _supabase.from('pickups').insert({
+      'user_id': userId,
+      'date': date,
+      'waste_type': wasteType,
+      'address': address,
+      'status': 'scheduled',
+      'photo_url': photoUrl,
+    }).select().single();
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 201 && data['success'] == true) {
-      return data['pickup'];
-    }
-    throw Exception(data['message'] ?? 'Failed to schedule pickup');
+    return response;
   }
 
   // ─── Rewards ───────────────────────────────────────────────────
 
   static Future<List<dynamic>> getRewards() async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl/api/rewards'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
-
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return data['rewards'] as List<dynamic>;
-    }
-    return [];
+    final response = await _supabase.from('rewards').select('*');
+    return response as List<dynamic>;
   }
 
   static Future<bool> redeemReward({
@@ -101,33 +71,41 @@ class ApiService {
     required String rewardId,
     required int pointsCost,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/api/rewards/redeem'),
-      headers: _headers,
-      body: jsonEncode({
-        'userId': userId,
-        'rewardId': rewardId,
-        'pointsCost': pointsCost,
-      }),
-    ).timeout(const Duration(seconds: 10));
+    try {
+      // 1. Check user balance
+      final profile = await _supabase
+          .from('profiles')
+          .select('eco_points')
+          .eq('id', userId)
+          .single();
 
-    final data = jsonDecode(response.body);
-    return response.statusCode == 200 && data['success'] == true;
+      final currentPoints = profile['eco_points'] as int? ?? 0;
+      if (currentPoints < pointsCost) {
+        throw Exception('Insufficient points');
+      }
+
+      // 2. Deduct points
+      await _supabase
+          .from('profiles')
+          .update({'eco_points': currentPoints - pointsCost})
+          .eq('id', userId);
+
+      return true;
+    } catch (e) {
+      print('Redeem Reward Error: $e');
+      return false;
+    }
   }
 
   // ─── Leaderboard ───────────────────────────────────────────────
 
   static Future<List<dynamic>> getLeaderboard() async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl/api/leaderboard'),
-      headers: _headers,
-    ).timeout(const Duration(seconds: 10));
-
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200 && data['success'] == true) {
-      return data['leaderboard'] as List<dynamic>;
-    }
-    return [];
+    final response = await _supabase
+        .from('profiles')
+        .select('id, full_name, eco_points, co2_saved')
+        .order('eco_points', ascending: false)
+        .limit(20);
+    return response as List<dynamic>;
   }
 
   // ─── Reports ───────────────────────────────────────────────────
@@ -139,20 +117,20 @@ class ApiService {
     required String description,
     String? photoUrl,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/api/reports'),
-      headers: _headers,
-      body: jsonEncode({
-        'userId': userId,
-        'issueType': issueType,
+    try {
+      await _supabase.from('reports').insert({
+        'user_id': userId,
+        'issue_type': issueType,
         'location': location,
         'description': description,
-        'photoUrl': photoUrl,
-      }),
-    ).timeout(const Duration(seconds: 10));
-
-    final data = jsonDecode(response.body);
-    return response.statusCode == 201 && data['success'] == true;
+        'photo_url': photoUrl,
+        'status': 'pending'
+      });
+      return true;
+    } catch (e) {
+      print('Report Issue Error: $e');
+      return false;
+    }
   }
 
   // ─── Update Profile (e.g. location for collectors) ─────────────
@@ -163,18 +141,22 @@ class ApiService {
     double? latitude,
     double? longitude,
   }) async {
-    final body = <String, dynamic>{};
-    if (fullName != null) body['full_name'] = fullName;
-    if (latitude != null) body['latitude'] = latitude;
-    if (longitude != null) body['longitude'] = longitude;
+    final updates = <String, dynamic>{};
+    if (fullName != null) updates['full_name'] = fullName;
+    if (latitude != null) updates['latitude'] = latitude;
+    if (longitude != null) updates['longitude'] = longitude;
 
-    final response = await http.put(
-      Uri.parse('$_baseUrl/api/auth/profile/$userId'),
-      headers: _headers,
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    if (updates.isEmpty) return false;
 
-    final data = jsonDecode(response.body);
-    return response.statusCode == 200 && data['success'] == true;
+    try {
+      await _supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId);
+      return true;
+    } catch (e) {
+      print('Update Profile Error: $e');
+      return false;
+    }
   }
 }

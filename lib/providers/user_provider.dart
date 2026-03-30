@@ -31,9 +31,9 @@ class UserProvider extends ChangeNotifier {
     await loadUserData();
   }
 
-  /// Loads user data with retry logic (up to [maxAttempts] attempts).
-  /// The Render backend may cold-start, so we retry with exponential backoff.
-  Future<void> loadUserData({int maxAttempts = 3}) async {
+  /// Loads user data. Since we now connect directly to Supabase via ApiService,
+  /// there are no cold-start delays and we only need a basic request.
+  Future<void> loadUserData() async {
     _isLoading = true;
     _lastError = null;
     notifyListeners();
@@ -48,54 +48,17 @@ class UserProvider extends ChangeNotifier {
 
       _userId = currentUser.id;
 
-      // Retry loop with exponential backoff for cold-start resilience
-      Exception? lastException;
-      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          final data = await ApiService.getUserProfile(_userId);
-          _userName = data['full_name'] ?? 'Guest';
-          _ecoPoints = data['eco_points'] ?? 0;
-          _totalWasteDiverted = data['co2_saved'] ?? 0;
-          _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
-          _lastError = null;
-          return; // Success — exit
-        } catch (e) {
-          lastException = e is Exception ? e : Exception(e.toString());
-          debugPrint('Attempt $attempt/$maxAttempts failed: $e');
+      final data = await ApiService.getUserProfile(_userId);
+      _userName = data['full_name'] ?? 'Guest';
+      _ecoPoints = data['eco_points'] ?? 0;
+      _totalWasteDiverted = data['co2_saved'] ?? 0;
+      _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
+      _lastError = null;
 
-          if (attempt < maxAttempts) {
-            // Exponential backoff: 500ms, 1s, 2s, 3s... capped at 5s
-            final delay = Duration(milliseconds: (500 * attempt).clamp(500, 5000));
-            await Future.delayed(delay);
-          }
-        }
-      }
-
-      // All attempts exhausted — try Supabase directly as fallback
-      try {
-        debugPrint('Backend unavailable, falling back to Supabase direct...');
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select()
-            .eq('id', _userId)
-            .maybeSingle();
-
-        if (profile != null) {
-          _userName = profile['full_name'] ?? 'Guest';
-          _ecoPoints = profile['eco_points'] ?? 0;
-          _totalWasteDiverted = profile['co2_saved'] ?? 0;
-          _role = profile['role'] == 'collector' ? AppRole.collector : AppRole.resident;
-          _lastError = null;
-          return;
-        }
-      } catch (fallbackError) {
-        debugPrint('Supabase fallback also failed: $fallbackError');
-      }
-
-      // Everything failed
-      _lastError = lastException?.toString() ?? 'Failed to load profile';
+    } catch (e) {
+      _lastError = e.toString();
       _userName = 'Guest';
-      debugPrint('All $maxAttempts attempts exhausted: $lastException');
+      debugPrint('Failed to load user data: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

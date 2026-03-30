@@ -122,10 +122,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           );
           if (response.user != null) break; // Success
         } on AuthException catch (e) {
-          // Don't retry auth-specific errors like "email taken"
-          if (e.message.toLowerCase().contains('already registered') ||
-              e.message.toLowerCase().contains('already been registered') ||
-              e.message.toLowerCase().contains('duplicate')) {
+          // Don't retry auth-specific errors like "email taken" or "rate limit"
+          final msg = e.message.toLowerCase();
+          if (msg.contains('already registered') ||
+              msg.contains('already been registered') ||
+              msg.contains('duplicate') ||
+              msg.contains('rate') ||
+              msg.contains('limit') ||
+              msg.contains('exceeded')) {
             throw e; // Re-throw immediately, no retry
           }
           authError = e;

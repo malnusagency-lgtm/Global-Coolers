@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final supabase = Supabase.instance.client;
       final String email = _isPhone 
-        ? '${_contactController.text.trim()}@phone.globalcoolers.app'
+        ? '${_contactController.text.replaceAll(RegExp(r'\\D'), '')}@phone.globalcoolers.app'
         : _contactController.text.trim();
       
       // Login with retry (up to 3 attempts for network resilience)
@@ -88,11 +88,15 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           if (response.user != null) break;
         } on AuthException catch (e) {
-          // Don't retry for wrong credentials
-          if (e.message.toLowerCase().contains('invalid') ||
-              e.message.toLowerCase().contains('credentials') ||
-              e.message.toLowerCase().contains('not found')) {
-            throw e;
+          final msg = e.message.toLowerCase();
+          // Don't retry for wrong credentials or rate limits
+          if (msg.contains('invalid') ||
+              msg.contains('credentials') ||
+              msg.contains('not found') ||
+              msg.contains('rate') ||
+              msg.contains('limit') ||
+              msg.contains('exceeded')) {
+            throw e; // Break immediately
           }
           lastError = e;
           debugPrint('Login attempt $attempt failed: ${e.message}');
@@ -103,6 +107,10 @@ class _LoginScreenState extends State<LoginScreen> {
             await Future.delayed(delay);
           }
         } catch (e) {
+          final msg = e.toString().toLowerCase();
+          if (msg.contains('invalid') || msg.contains('rate') || msg.contains('limit')) {
+            throw e;
+          }
           lastError = e is Exception ? e : Exception(e.toString());
           debugPrint('Login attempt $attempt failed: $e');
           

@@ -106,7 +106,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     try {
       final supabase = Supabase.instance.client;
       final String email = _isPhone 
-        ? '${_contactController.text.trim()}@phone.globalcoolers.app'
+        ? '${_contactController.text.replaceAll(RegExp(r'\\D'), '')}@phone.globalcoolers.app'
         : _contactController.text.trim();
       
       // Step 1: Auth signup with retry

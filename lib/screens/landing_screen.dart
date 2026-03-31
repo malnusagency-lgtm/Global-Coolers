@@ -33,20 +33,6 @@ class LandingScreen extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  // Abstract decorative background
-                  Positioned(
-                    top: -100,
-                    right: -100,
-                    child: Container(
-                      width: 300,
-                      height: 300,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                  
                   Positioned(
                     top: 16,
                     right: 16,
@@ -78,44 +64,39 @@ class LandingScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // New Branded Header
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: Colors.white.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                           ),
-                          child: const Text(
-                            'GLOBAL COOLERS',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset('assets/images/logo.png', height: 18),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'GLOBAL COOLERS',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(seconds: 1),
-                          builder: (context, value, child) {
-                            return Opacity(
-                              opacity: value,
-                              child: Transform.translate(
-                                offset: Offset(0, 30 * (1 - value)),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Text(
-                            l10n.translate('landing_title'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              height: 1.1,
-                            ),
+                        Text(
+                          l10n.translate('landing_title'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            height: 1.1,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -172,97 +153,9 @@ class LandingScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 48),
-                  _buildStep(
-                    l10n.translate('step1_title'),
-                    l10n.translate('step1_desc'),
-                    Icons.auto_delete_outlined,
-                    0,
-                  ),
-                  _buildStep(
-                    l10n.translate('step2_title'),
-                    l10n.translate('step2_desc'),
-                    Icons.trending_up,
-                    1,
-                  ),
-                  _buildStep(
-                    l10n.translate('step3_title'),
-                    l10n.translate('step3_desc'),
-                    Icons.redeem,
-                    2,
-                  ),
-                ],
-              ),
-            ),
-
-            // Rewards CTA Section
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0F7F0), // Subtle mint
-                borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.stars, color: Colors.orange, size: 60),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.translate('join_cta'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildRewardIcon(Icons.bolt, 'Tokens'),
-                            _buildRewardIcon(Icons.phone_android, 'Airtime'),
-                            _buildRewardIcon(Icons.shopping_bag, 'Vouchers'),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pushNamed(context, '/create-account'),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.primary, width: 2),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: Text(
-                              l10n.translate('get_started'),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildStep(l10n, 'step1_title', 'step1_desc', Icons.auto_delete_outlined),
+                  _buildStep(l10n, 'step2_title', 'step2_desc', Icons.trending_up),
+                  _buildStep(l10n, 'step3_title', 'step3_desc', Icons.redeem),
                 ],
               ),
             ),
@@ -273,15 +166,9 @@ class LandingScreen extends StatelessWidget {
               color: const Color(0xFF1A2E1A),
               child: Column(
                 children: [
-                  const Text(
-                    '© 2026 Global Coolers Kenya',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
+                  const Text('© 2026 Global Coolers Kenya', style: TextStyle(color: Colors.white54, fontSize: 12)),
                   const SizedBox(height: 8),
-                  Text(
-                    l10n.translate('slogan'),
-                    style: const TextStyle(color: Colors.white24, fontSize: 10, fontStyle: FontStyle.italic),
-                  ),
+                  Text(l10n.translate('slogan'), style: const TextStyle(color: Colors.white24, fontSize: 10, fontStyle: FontStyle.italic)),
                 ],
               ),
             ),
@@ -291,17 +178,14 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStep(String title, String desc, IconData icon, int index) {
+  Widget _buildStep(AppLocalizations l10n, String titleKey, String descKey, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 40),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
             child: Icon(icon, color: AppColors.primary, size: 32),
           ),
           const SizedBox(width: 24),
@@ -309,46 +193,13 @@ class LandingScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  desc,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text(l10n.translate(titleKey), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text(l10n.translate(descKey), style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRewardIcon(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF0F7F0),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: AppColors.primary),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-      ],
     );
   }
 }

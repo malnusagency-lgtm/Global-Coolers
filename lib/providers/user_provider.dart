@@ -14,6 +14,9 @@ class UserProvider extends ChangeNotifier {
   int _ecoPoints = 0;
   int _totalWasteDiverted = 0;
   String? _address;
+  bool _isOnline = false;
+  double? _latitude;
+  double? _longitude;
   
   bool _isLoading = true;
   String? _lastError;
@@ -27,6 +30,8 @@ class UserProvider extends ChangeNotifier {
   int get ecoPoints => _ecoPoints < 0 ? 0 : _ecoPoints;
   int get totalWasteDiverted => _totalWasteDiverted;
   String? get address => _address;
+  bool get isOnline => _isOnline;
+  bool get isCollector => _role == AppRole.collector;
   String get fullName => _userName;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
@@ -95,6 +100,9 @@ class UserProvider extends ChangeNotifier {
         _ecoPoints = data['eco_points'] ?? 0;
         _totalWasteDiverted = data['co2_saved'] ?? 0;
         _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
+        _isOnline = data['is_online'] ?? false;
+        _latitude = (data['latitude'] as num?)?.toDouble();
+        _longitude = (data['longitude'] as num?)?.toDouble();
         _email = data['email'] ?? currentUser.email ?? '';
         _phone = data['phone'] ?? '';
         _address = data['address'];
@@ -157,6 +165,28 @@ class UserProvider extends ChangeNotifier {
 
   void addPoints(int amount) {
     _ecoPoints += amount;
+    notifyListeners();
+  }
+
+  Future<void> toggleOnlineStatus() async {
+    if (_userId.isEmpty || !isCollector) return;
+    
+    final newStatus = !_isOnline;
+    try {
+      await SupabaseService().updateOnlineStatus(newStatus);
+      _isOnline = newStatus;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Toggle online status error: $e');
+    }
+  }
+
+  Future<void> updateCurrentLocation(double lat, double lng) async {
+    _latitude = lat;
+    _longitude = lng;
+    if (isCollector && _isOnline) {
+      await SupabaseService().updateLocation(lat, lng);
+    }
     notifyListeners();
   }
 

@@ -19,7 +19,7 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
     final userProvider = context.watch<UserProvider>();
     final totalWaste = userProvider.totalWasteDiverted > 0 ? userProvider.totalWasteDiverted : 0;
     final treesSaved = (totalWaste / 21).toStringAsFixed(1);
-    final co2Reduced = totalWaste.toString();
+    final co2Reduced = (totalWaste * 0.8).toStringAsFixed(1); // 0.8kg CO2 per 1kg waste is a common metric
 
     return Scaffold(
       backgroundColor: AppColors.background,

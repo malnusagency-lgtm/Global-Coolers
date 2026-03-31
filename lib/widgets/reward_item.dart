@@ -5,7 +5,8 @@ class RewardItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final int points;
-  final String imageAsset;
+  final String? imageAsset;
+  final String? imageUrl;
   final String? iconName;
   final String? colorHex;
   final VoidCallback onRedeem;
@@ -16,7 +17,8 @@ class RewardItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.points,
-    required this.imageAsset,
+    this.imageAsset,
+    this.imageUrl,
     this.iconName,
     this.colorHex,
     required this.onRedeem,
@@ -67,14 +69,27 @@ class RewardItem extends StatelessWidget {
             decoration: BoxDecoration(
               color: _parseColor(colorHex).withOpacity(0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              image: (imageUrl != null && imageUrl!.isNotEmpty)
+                  ? DecorationImage(
+                      image: NetworkImage(imageUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : (imageAsset != null && imageAsset!.isNotEmpty)
+                      ? DecorationImage(
+                          image: AssetImage(imageAsset!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
             ),
-            child: Center(
-              child: Icon(
-                _mapIcon(iconName), 
-                size: 44, 
-                color: _parseColor(colorHex),
-              ),
-            ),
+            child: (imageUrl == null || imageUrl!.isEmpty) && (imageAsset == null || imageAsset!.isEmpty)
+                ? Center(
+                    child: Icon(
+                      _mapIcon(iconName), 
+                      size: 44, 
+                      color: _parseColor(colorHex),
+                    ),
+                  )
+                : null,
           ),
           Padding(
             padding: const EdgeInsets.all(12),

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../services/supabase_service.dart';
+import '../widgets/notification_card.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   const NotificationCenterScreen({super.key});
@@ -8,154 +12,179 @@ class NotificationCenterScreen extends StatefulWidget {
   State<NotificationCenterScreen> createState() => _NotificationCenterScreenState();
 }
 
-class _NotificationCenterScreenState extends State<NotificationCenterScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
+  final SupabaseService _supabaseService = SupabaseService();
+  String _selectedCategory = 'All';
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.done_all, color: AppColors.primary),
-            onPressed: () {},
-            tooltip: 'Mark all as read',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          indicatorSize: TabBarIndicatorSize.label,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Activity'),
-            Tab(text: 'System'),
-          ],
-        ),
+        title: const Text('Notification Center'),
+        centerTitle: true,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildNotificationList('All'),
-          _buildNotificationList('Activity'),
-          _buildNotificationList('System'),
-        ],
+      body: FutureBuilder<List<dynamic>>(
+        // Both roles benefit from seeing their pickups/assignments history
+        future: userProvider.isCollector 
+            ? _supabaseService.getPendingPickups() 
+            : _supabaseService.getPickups(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+          
+          final data = snapshot.data ?? [];
+          final notifications = _generateNotifications(data, userProvider);
+
+          return Column(
+            children: [
+              _buildCategoryTabs(),
+              Expanded(
+                child: notifications.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      itemCount: notifications.length,
+                      itemBuilder: (context, index) {
+                        final n = notifications[index];
+                        if (_selectedCategory != 'All' && n.category != _selectedCategory) return const SizedBox.shrink();
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: NotificationCard(
+                            title: n.title,
+                            message: n.message,
+                            time: n.time,
+                            icon: n.icon,
+                            color: n.color,
+                          ),
+                        );
+                      },
+                    ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildNotificationList(String filter) {
-    // Simulated notification data
-    final notifications = [
-      {
-        'title': 'Welcome to Global Coolers! 🌍',
-        'desc': 'You\'ve received 500 Eco-Points as a signup bonus. Start recycling today!',
-        'time': 'Just now',
-        'icon': Icons.stars_rounded,
-        'color': AppColors.primary,
-        'isSystem': true,
-      },
-      {
-        'title': 'Pickup Confirmed 🚛',
-        'desc': 'A collector is on the way to pick up your plastic waste.',
-        'time': '2 hours ago',
-        'icon': Icons.local_shipping_outlined,
-        'color': AppColors.info,
-        'isSystem': false,
-      },
-      {
-        'title': 'New Challenge Available! 🏆',
-        'desc': 'Join the "Nairobi Clean-up" challenge and earn 1000 points.',
-        'time': '1 day ago',
-        'icon': Icons.emoji_events_outlined,
-        'color': AppColors.warning,
-        'isSystem': true,
-      },
-    ];
+  List<_NotificationData> _generateNotifications(List<dynamic> data, UserProvider user) {
+    List<_NotificationData> list = [];
 
-    final filtered = filter == 'All' 
-        ? notifications 
-        : filter == 'System' 
-            ? notifications.where((n) => n['isSystem'] as bool).toList()
-            : notifications.where((n) => !(n['isSystem'] as bool)).toList();
+    // System welcome notification
+    list.add(_NotificationData(
+      title: 'Welcome to Global Coolers',
+      message: user.isCollector 
+          ? 'You are now a verified collector. Go online to start receiving waste pickup assignments!' 
+          : 'Thank you for joining the green movement! Your first 500 EcoPoints have been added.',
+      time: 'Just now',
+      icon: Icons.celebration,
+      color: AppColors.primary,
+      category: 'System',
+    ));
 
-    if (filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            const Text('No notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-          ],
-        ),
-      );
+    for (var item in data) {
+      final status = item['status'];
+      final wasteType = item['waste_type'];
+      final isResident = !user.isCollector;
+
+      if (isResident) {
+        if (status == 'scheduled') {
+          list.add(_NotificationData(
+            title: 'Pickup Confirmed 🚛',
+            message: 'Your $wasteType pickup is scheduled. We have assigned a collector nearby.',
+            time: item['date'] ?? 'Upcoming',
+            icon: Icons.schedule,
+            color: AppColors.info,
+            category: 'Activity',
+          ));
+        } else if (status == 'completed') {
+          list.add(_NotificationData(
+            title: 'Waste Collected! 🎉',
+            message: 'Successfully recycled your $wasteType waste. EcoPoints have been credited.',
+            time: 'Completed',
+            icon: Icons.check_circle,
+            color: AppColors.success,
+            category: 'Activity',
+          ));
+        }
+      } else {
+        // Collector notifications
+        if (status == 'scheduled') {
+          list.add(_NotificationData(
+            title: 'New Assignment 📍',
+            message: 'A new $wasteType pickup at ${item['address']} has been assigned to you.',
+            time: 'New',
+            icon: Icons.local_shipping,
+            color: AppColors.warning,
+            category: 'Activity',
+          ));
+        }
+      }
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final n = filtered[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return list;
+  }
+
+  Widget _buildCategoryTabs() {
+    final categories = ['All', 'Activity', 'System'];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: categories.map((cat) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: ChoiceChip(
+            label: Text(cat),
+            selected: _selectedCategory == cat,
+            onSelected: (val) => setState(() => _selectedCategory = cat),
+            selectedColor: AppColors.primary.withOpacity(0.1),
+            labelStyle: TextStyle(
+              color: _selectedCategory == cat ? AppColors.primary : AppColors.textSecondary,
+              fontWeight: _selectedCategory == cat ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: (n['color'] as Color).withOpacity(0.1), shape: BoxShape.circle),
-                child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(n['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 4),
-                    Text(n['desc'] as String, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
-                    const SizedBox(height: 8),
-                    Text(n['time'] as String, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+        )).toList(),
+      ),
     );
   }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text('All caught up!', style: TextStyle(color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationData {
+  final String title;
+  final String message;
+  final String time;
+  final IconData icon;
+  final Color color;
+  final String category;
+
+  _NotificationData({
+    required this.title,
+    required this.message,
+    required this.time,
+    required this.icon,
+    required this.color,
+    required this.category,
+  });
 }

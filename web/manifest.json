@@ -1,11 +1,11 @@
 {
-    "name": "global_coolers",
-    "short_name": "global_coolers",
+    "name": "Global Coolers",
+    "short_name": "GlobalCoolers",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#ffffff",
+    "background_color": "#1A2E1A",
     "theme_color": "#4CAF50",
-    "description": "A new Flutter project.",
+    "description": "Smart Waste Management & Recycling Rewards in Kenya.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

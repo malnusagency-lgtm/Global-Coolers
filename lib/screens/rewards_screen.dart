@@ -207,7 +207,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           subtitle: reward['partner'],
                           points: reward['cost'],
                           imageAsset: '',
-                          iconName: reward['icon_name'],
+                          imageUrl: reward['image_url'],
+                          iconName: reward['image_url'] == null ? reward['icon_name'] : null,
                           colorHex: reward['color_hex'],
                           onRedeem: () async {
                             final success = await userProvider.redeemReward(

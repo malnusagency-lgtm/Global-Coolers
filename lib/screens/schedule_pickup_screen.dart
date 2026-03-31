@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import '../theme/app_colors.dart';
-import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
@@ -19,43 +19,14 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
+  bool _isFindingDriver = false;
   Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
-  final TextEditingController _addressController = TextEditingController(text: 'Plot 45, Kilimani Estate, Nairobi');
+  final TextEditingController _addressController = TextEditingController();
   final FocusNode _addressFocusNode = FocusNode();
+  final SupabaseService _supabaseService = SupabaseService();
 
-  int get _estimatedCost {
-    final name = _categories[_selectedCategoryIndex]['name'] as String;
-    switch (name) {
-      case 'Organic': return 100;
-      case 'Plastic': return 200;
-      case 'Paper': return 200;
-      case 'Metal': return 250;
-      case 'E-waste': return 350;
-      case 'Hazardous': return 500;
-      default: return 200;
-    }
-  }
-
-  @override
-  void dispose() {
-    _addressController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-    );
-
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      setState(() {
-        _imageBytes = bytes;
-      });
-    }
-  }
+  Position? _currentPosition;
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Organic', 'icon': Icons.compost, 'color': AppColors.organic},
@@ -67,7 +38,42 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    final pos = await _supabaseService.getCurrentPosition();
+    if (pos != null && mounted) {
+      setState(() {
+        _currentPosition = pos;
+        if (_addressController.text.isEmpty) {
+          _addressController.text = 'Current Device Location';
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _addressFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() => _imageBytes = bytes);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -75,431 +81,231 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Schedule Pickup'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Builder(
-                  builder: (context) {
-                    final now = DateTime.now();
-                    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    final currentMonthYear = '${months[now.month - 1]} ${now.year}';
-                    
-                    return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Brief location card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.location_on, color: AppColors.primary),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'PICKUP LOCATION',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textSecondary,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                TextField(
-                                  controller: _addressController,
-                                  focusNode: _addressFocusNode,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  decoration: const InputDecoration.collapsed(
-                                    hintText: 'Enter pickup address',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              _addressFocusNode.requestFocus();
-                            },
-                            child: const Text('Edit'),
-                          ),
-                        ],
-                      ),
+      body: userProvider.role != AppRole.resident 
+        ? _buildAccessRestricted() 
+        : Stack(
+            children: [
+              Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24.0),
+                      child: _buildForm(context),
                     ),
-                    const SizedBox(height: 32),
-                    
-                    // Waste Category Grid
-                    const Text(
-                      'What are we collecting?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.9,
-                      ),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        return _buildCategoryItem(index);
-                      },
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Date & Time Selection via Material Pickers
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Select Date',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  final now = DateTime.now();
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: now.add(const Duration(days: 1)),
-                                    firstDate: now.add(const Duration(days: 1)), // Only future dates
-                                    lastDate: now.add(const Duration(days: 30)), // Up to 1 month ahead
-                                    builder: (context, child) {
-                                      return Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: const ColorScheme.light(
-                                            primary: AppColors.primary,
-                                            onPrimary: Colors.white,
-                                            onSurface: AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        child: child!,
-                                      );
-                                    },
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedDate = picked);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _selectedDate != null ? AppColors.primary : Colors.grey.shade300),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.calendar_today, size: 18, color: _selectedDate != null ? AppColors.primary : Colors.grey.shade500),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _selectedDate != null 
-                                            ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}' 
-                                            : 'Pick a Date',
-                                        style: TextStyle(
-                                          color: _selectedDate != null ? AppColors.textPrimary : Colors.grey.shade500,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Select Time',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  final picked = await showTimePicker(
-                                    context: context,
-                                    initialTime: const TimeOfDay(hour: 9, minute: 0),
-                                    builder: (context, child) {
-                                      return Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: const ColorScheme.light(
-                                            primary: AppColors.primary,
-                                            onPrimary: Colors.white,
-                                            onSurface: AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        child: child!,
-                                      );
-                                    },
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedTime = picked);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _selectedTime != null ? AppColors.primary : Colors.grey.shade300),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.access_time, size: 18, color: _selectedTime != null ? AppColors.primary : Colors.grey.shade500),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _selectedTime != null 
-                                            ? _selectedTime!.format(context)
-                                            : 'Pick Time',
-                                        style: TextStyle(
-                                          color: _selectedTime != null ? AppColors.textPrimary : Colors.grey.shade500,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Cost Estimate
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Estimated Cost',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            'KES $_estimatedCost',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    // Image Upload Section
-                    const Text(
-                      'Waste Photo (Recommended)',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        height: 150,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: _imageBytes != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.memory(_imageBytes!, fit: BoxFit.cover),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.camera_alt_outlined, size: 40, color: AppColors.primary),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Take a photo of the waste',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ),
-          ),
-            
-            // Confirm Button
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : () async {
-                    setState(() => _isLoading = true);
-                    
-                    try {
-                      String? photoUrl;
-                      if (_imageBytes != null) {
-                        photoUrl = await SupabaseService().uploadWastePhoto(_imageBytes!, 'jpg');
-                      }
-
-                      final categoryName = _categories[_selectedCategoryIndex]['name'] as String;
-                      final userId = context.read<UserProvider>().userId;
-                      
-                      if (_selectedDate == null || _selectedTime == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select both a date and a time for the pickup.')),
-                        );
-                        setState(() => _isLoading = false);
-                        return;
-                      }
-
-                      // Build a human-readable date from selection
-                      final timeSlotLabel = _selectedTime!.format(context);
-                      final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')} $timeSlotLabel';
-
-                      final pickup = await ApiService.schedulePickup(
-                        userId: userId,
-                        date: dateStr,
-                        wasteType: categoryName, 
-                        address: _addressController.text.trim(),
-                        photoUrl: photoUrl,
-                      );
-                      
-                      if (!mounted) return;
-                      
-                      Navigator.pushNamed(context, '/pickup-confirmation', arguments: {
-                        'qrCode': pickup['qr_code'],
-                        'wasteType': categoryName,
-                      }); 
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to schedule: $e')),
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isLoading = false);
-                    }
-                  },
-                  child: _isLoading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirm Schedule'),
-                ),
+                  ),
+                  _buildConfirmButton(context),
+                ],
               ),
-            ),
+              if (_isFindingDriver) _buildFindingDriverOverlay(),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildAccessRestricted() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_person_rounded, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text('Access Restricted', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text('Only household accounts can schedule pickups.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(height: 24),
+            ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCategoryItem(int index) {
-    final category = _categories[index];
-    final isSelected = _selectedCategoryIndex == index;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedCategoryIndex = index);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: 2,
+  Widget _buildForm(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLocationCard(),
+        const SizedBox(height: 32),
+        const Text('What are we collecting?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        _buildCategoryGrid(),
+        const SizedBox(height: 32),
+        _buildDateTimeSection(context),
+        const SizedBox(height: 32),
+        _buildPhotoSection(),
+      ],
+    );
+  }
+
+  Widget _buildLocationCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.primary.withOpacity(0.1))),
+      child: Row(
+        children: [
+          Icon(Icons.location_on, color: _currentPosition != null ? AppColors.primary : Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _addressController,
+              focusNode: _addressFocusNode,
+              decoration: const InputDecoration.collapsed(hintText: 'Enter pickup address or use GPS'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ] : null,
-        ),
+          IconButton(onPressed: _fetchLocation, icon: const Icon(Icons.my_location, size: 20, color: AppColors.primary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.9),
+      itemCount: _categories.length,
+      itemBuilder: (context, index) => _buildCategoryItem(index),
+    );
+  }
+
+  Widget _buildCategoryItem(int index) {
+    final cat = _categories[index];
+    final isSelected = _selectedCategoryIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCategoryIndex = index),
+      child: Container(
+        decoration: BoxDecoration(color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade200, width: 2)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: category['color'].withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                category['icon'],
-                color: category['color'],
-                size: 24,
-              ),
-            ),
+            Icon(cat['icon'], color: isSelected ? AppColors.primary : Colors.grey),
             const SizedBox(height: 8),
-            Text(
-              category['name'],
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text(cat['name'], style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDateTimeSection(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _buildPickerCard('Date', _selectedDate == null ? 'Pick Date' : '${_selectedDate!.day}/${_selectedDate!.month}', Icons.calendar_today, () async {
+          final picked = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 1)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
+          if (picked != null) setState(() => _selectedDate = picked);
+        })),
+        const SizedBox(width: 16),
+        Expanded(child: _buildPickerCard('Time', _selectedTime == null ? 'Pick Time' : _selectedTime!.format(context), Icons.access_time, () async {
+          final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+          if (picked != null) setState(() => _selectedTime = picked);
+        })),
+      ],
+    );
+  }
+
+  Widget _buildPickerCard(String title, String val, IconData icon, VoidCallback onTap) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [Icon(icon, size: 16, color: AppColors.primary), const SizedBox(width: 8), Text(val, style: const TextStyle(fontSize: 13))]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Waste Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            height: 120, width: double.infinity,
+            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+            child: _imageBytes != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.memory(_imageBytes!, fit: BoxFit.cover)) : const Icon(Icons.add_a_photo_outlined, color: AppColors.primary, size: 32),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfirmButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          onPressed: _isLoading ? null : _handleSchedule,
+          child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Schedule Collection', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSchedule() async {
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select date and time')));
+      return;
+    }
+
+    setState(() { _isLoading = true; _isFindingDriver = true; });
+    try {
+      String? photoUrl;
+      if (_imageBytes != null) photoUrl = await _supabaseService.uploadWastePhoto(_imageBytes!, 'jpg');
+      
+      final dateStr = '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime!.format(context)}';
+      
+      // Use real GPS coordinates if available, otherwise fallback to reasonable default (Nairobi center)
+      final lat = _currentPosition?.latitude ?? -1.2921;
+      final lng = _currentPosition?.longitude ?? 36.8219;
+
+      await _supabaseService.schedulePickup(
+        date: dateStr,
+        wasteType: _categories[_selectedCategoryIndex]['name'],
+        address: _addressController.text.trim(),
+        latitude: lat,
+        longitude: lng,
+        photoUrl: photoUrl,
+      );
+
+      await Future.delayed(const Duration(seconds: 4)); // UX delay for "Finding Driver"
+
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/home');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Driver assigned! Pickup scheduled successfully. 🎉'), backgroundColor: AppColors.success));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() { _isLoading = false; _isFindingDriver = false; });
+    }
+  }
+
+  Widget _buildFindingDriverOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.9),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 4),
+          const SizedBox(height: 32),
+          const Text('Finding nearest collector...', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Text('Wait while Global Coolers optimizes your route', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+        ],
       ),
     );
   }

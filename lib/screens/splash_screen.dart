@@ -30,7 +30,12 @@ class _SplashScreenState extends State<SplashScreen> {
       // User is logged in securely
       try {
         final userProvider = context.read<UserProvider>();
-        await userProvider.loadUserData();
+        
+        // Timeout the loadUserData call after 5 seconds to prevent infinite splash hang
+        await userProvider.loadUserData().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => throw Exception('Load user data timed out'),
+        );
         
         if (!mounted) return;
         
@@ -41,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
             
         Navigator.pushReplacementNamed(context, route);
       } catch (e) {
-        debugPrint('Auto-login data load failed: $e');
+        debugPrint('Auto-login sequence failed or timed out: $e');
         if (mounted) Navigator.pushReplacementNamed(context, '/landing');
       }
     } else {

@@ -42,6 +42,7 @@ class UserProvider extends ChangeNotifier {
   /// Loads user data with Instant Offline Caching.
   /// First instantly paints the dashboard with cached data, then quietly updates from Supabase.
   Future<void> loadUserData() async {
+    if (_isLoading && _userId.isNotEmpty) return; // Already loading
     _isLoading = true;
     _lastError = null;
 

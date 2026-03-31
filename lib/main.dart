@@ -11,10 +11,15 @@ import 'config/supabase_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase initialization error: $e');
+    // We allow the app to boot so the UI can handle the offline/error state gracefully
+  }
 
   runApp(
     const MyApp(),

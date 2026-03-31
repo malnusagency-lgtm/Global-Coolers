@@ -539,14 +539,16 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         if (myPickups.isNotEmpty) {
           final pickupId = myPickups.first['id'].toString();
           
+          final startTime = DateTime.now();
           await for (final status in _supabaseService.streamPickupStatus(pickupId)) {
             if (status['collector_id'] != null) {
               collectorFound = true;
               break;
             }
             // Timeout manually after 45 seconds
-            if (DateTime.now().difference(now) > const Duration(seconds: 45)) break;
+            if (DateTime.now().difference(startTime) > const Duration(seconds: 45)) break;
           }
+
         }
 
         if (!mounted) return;

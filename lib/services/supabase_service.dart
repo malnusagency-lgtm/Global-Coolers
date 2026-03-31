@@ -129,7 +129,7 @@ class SupabaseService {
       final List<dynamic> collectors = response;
       if (collectors.isEmpty) return null;
 
-      final distance = const Distance();
+      final distance = Distance();
       final pickupPoint = LatLng(lat, lng);
 
       String? nearestId;
@@ -239,6 +239,39 @@ class SupabaseService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
+  }
+
+  /// New production methods for stabilization
+  
+  Future<Map<String, dynamic>> verifyPickupByQr(String code) async {
+    try {
+      final response = await _supabase
+          .from('pickups')
+          .select('*, profiles(full_name)')
+          .eq('qr_code_id', code) // Assuming qr_code_id field exists
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('Verify Pickup QR Error: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> streamLocation(String collectorId) {
+    return _supabase
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', collectorId)
+        .map((maps) => maps.map((m) => m).toList());
+  }
+
+  Future<void> updateLocation(double lat, double lng) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('profiles').update({
+      'latitude': lat,
+      'longitude': lng,
+    }).eq('id', userId);
   }
 
   Future<List<dynamic>> getLeaderboard() async {

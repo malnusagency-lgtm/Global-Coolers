@@ -11,6 +11,7 @@ class NotificationCard extends StatelessWidget {
   final VoidCallback? onTap;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final IconData? icon;
 
   const NotificationCard({
     super.key,
@@ -21,34 +22,35 @@ class NotificationCard extends StatelessWidget {
     this.onTap,
     this.actionLabel,
     this.onAction,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
     Color iconColor;
     Color bgColor;
-    IconData icon;
+    IconData displayIcon;
 
     switch (type) {
       case NotificationType.system:
         iconColor = AppColors.primary;
         bgColor = AppColors.primary.withOpacity(0.1);
-        icon = Icons.info_outline;
+        displayIcon = icon ?? Icons.info_outline;
         break;
       case NotificationType.community:
         iconColor = AppColors.info;
         bgColor = AppColors.info.withOpacity(0.1);
-        icon = Icons.people_outline;
+        displayIcon = icon ?? Icons.people_outline;
         break;
       case NotificationType.activity:
         iconColor = AppColors.warning;
         bgColor = AppColors.warning.withOpacity(0.1);
-        icon = Icons.local_activity_outlined;
+        displayIcon = icon ?? Icons.local_activity_outlined;
         break;
       case NotificationType.alert:
         iconColor = AppColors.error;
         bgColor = AppColors.error.withOpacity(0.1);
-        icon = Icons.warning_amber_rounded;
+        displayIcon = icon ?? Icons.warning_amber_rounded;
         break;
     }
 
@@ -81,7 +83,7 @@ class NotificationCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    icon,
+                    displayIcon,
                     color: iconColor,
                     size: 20,
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 
 enum AppRole { resident, collector }
 
@@ -137,6 +138,10 @@ class UserProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<void> fetchProfile() async {
+    await loadUserData();
   }
 
   Future<bool> redeemReward(int cost, {String rewardId = 'REWARD'}) async {

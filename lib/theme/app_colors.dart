@@ -6,6 +6,7 @@ class AppColors {
   static const Color primaryDark = Color(0xFF1B5E20);
   static const Color primaryLight = Color(0xFF4CAF50);
   static const Color accent = Color(0xFF00E676); // Bright lime green for success/highlights
+  static const Color secondary = Color(0xFF81C784); // Lighter green for UI highlights
   
   // Backgrounds
   static const Color background = Color(0xFFF5F9F6); // Very light mint/grey

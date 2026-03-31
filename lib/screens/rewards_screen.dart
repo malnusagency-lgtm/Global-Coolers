@@ -18,11 +18,20 @@ class _RewardsScreenState extends State<RewardsScreen> {
   int _currentIndex = 2; // Wallet/Rewards tab
 
   void _onNavTap(int index) {
-    setState(() => _currentIndex = index);
-    if (index == 0) Navigator.pushNamed(context, '/home');
-    if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
-    if (index == 3) Navigator.pushNamed(context, '/profile');
+    if (index == _currentIndex) return;
+    final userProvider = context.read<UserProvider>();
+    
+    if (userProvider.isCollector) {
+      if (index == 0) Navigator.pushNamed(context, '/collector-dashboard');
+      if (index == 2) Navigator.pushNamed(context, '/profile');
+      // History (index 1) can stay or be implemented
+    } else {
+      if (index == 0) Navigator.pushNamed(context, '/home');
+      if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
+      if (index == 3) Navigator.pushNamed(context, '/profile');
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -198,8 +207,29 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     return Text('Error: ${snapshot.error}');
                   }
                   final rewards = snapshot.data ?? [];
+                  if (rewards.isEmpty) {
+                    return Container(
+                      width: MediaQuery.of(context).size.width - 48,
+                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.redeem_outlined, size: 48, color: Colors.grey.withOpacity(0.2)),
+                          const SizedBox(height: 16),
+                          const Text('No rewards available', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          const Text('Check back soon for new offers!', style: TextStyle(color: AppColors.textSecondary, fontSize: 13), textAlign: TextAlign.center),
+                        ],
+                      ),
+                    );
+                  }
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+
                     child: Row(
                       children: rewards.map((reward) {
                         return RewardItem(
@@ -240,8 +270,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
+        role: userProvider.isCollector ? UserRole.collector : UserRole.resident,
         onTap: _onNavTap,
       ),
+
     );
   }
 }

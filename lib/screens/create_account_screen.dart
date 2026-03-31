@@ -15,7 +15,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   int _selectedRoleIndex = 0; // 0: Household, 1: Collector
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _agreedToTerms = false;
   String _statusMessage = '';
+
   
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -108,6 +110,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please agree to the Terms & Conditions.')));
+      return;
+    }
+
 
     setState(() {
       _isLoading = true;
@@ -540,9 +547,35 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 );
               }),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              
+              // ─── Terms & Conditions ──────────────────────────────
+              CheckboxListTile(
+                value: _agreedToTerms,
+                onChanged: (val) => setState(() => _agreedToTerms = val ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                activeColor: AppColors.primary,
+                title: Wrap(
+                  children: [
+                    const Text('I agree to the ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    GestureDetector(
+                      onTap: () {}, // TODO: Open URL
+                      child: const Text('Terms & Conditions', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    ),
+                    const Text(' and ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    GestureDetector(
+                      onTap: () {}, // TODO: Open URL
+                      child: const Text('Privacy Policy', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               // Status message during loading
+
               if (_statusMessage.isNotEmpty)
                 Container(
                   width: double.infinity,

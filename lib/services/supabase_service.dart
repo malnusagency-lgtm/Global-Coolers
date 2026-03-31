@@ -138,7 +138,9 @@ class SupabaseService {
     double? latitude,
     double? longitude,
     String? photoUrl,
+    bool isImmediate = false,
   }) async {
+
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
@@ -161,7 +163,9 @@ class SupabaseService {
         'longitude': longitude,
         'collector_id': null,
         'is_assigned': false,
+        'is_immediate': isImmediate,
       });
+
     } catch (e) {
       debugPrint('SupabaseService Schedule Error: $e');
       rethrow;
@@ -468,9 +472,12 @@ class SupabaseService {
   }
 
   Future<List<dynamic>> getPendingPickups() async {
-    final response = await _supabase.from('pickups').select('*, profiles(full_name)').eq('status', 'scheduled').order('date', ascending: true);
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+    final response = await _supabase.from('pickups').select('*, profiles(full_name)').eq('collector_id', userId).neq('status', 'completed').order('date', ascending: true);
     return response as List<dynamic>;
   }
+
 
   // ──────────────────────────────────────────────
   //  COLLECTOR ACTIONS (ACCEPT / ROUTE)
@@ -525,4 +532,20 @@ class SupabaseService {
   }
 
   Future<void> signOut() async => await _supabase.auth.signOut();
+
+  Future<void> resetPassword(String email) async {
+    await _supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo: kIsWeb ? null : 'io.supabase.flutter://reset-callback/',
+    );
+  }
+
+  Stream<Map<String, dynamic>> streamPickupStatus(String pickupId) {
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('id', pickupId)
+        .map((list) => list.first);
+  }
 }
+

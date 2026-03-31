@@ -18,11 +18,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   int _currentIndex = 3; // Account tab
 
   void _onNavTap(int index) {
-    setState(() => _currentIndex = index);
-    if (index == 0) Navigator.pushNamed(context, '/home');
-    if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
-    if (index == 2) Navigator.pushNamed(context, '/rewards');
+    if (index == _currentIndex) return;
+    final userProvider = context.read<UserProvider>();
+    
+    if (userProvider.isCollector) {
+      if (index == 0) Navigator.pushNamed(context, '/collector-dashboard');
+      if (index == 2) Navigator.pushNamed(context, '/profile');
+    } else {
+      if (index == 0) Navigator.pushNamed(context, '/home');
+      if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
+      if (index == 2) Navigator.pushNamed(context, '/rewards');
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -164,9 +172,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavBar(
-        currentIndex: _currentIndex,
+        currentIndex: userProvider.isCollector ? 2 : 3,
+        role: userProvider.isCollector ? UserRole.collector : UserRole.resident,
         onTap: _onNavTap,
       ),
+
     );
   }
 

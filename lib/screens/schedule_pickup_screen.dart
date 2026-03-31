@@ -20,6 +20,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
   bool _isFindingDriver = false;
+  bool _isImmediate = true; // Default to Immediate
+
   Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _addressController = TextEditingController();
@@ -104,53 +106,28 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         ),
         title: const Text('Schedule Pickup'),
       ),
-      body: userProvider.role != AppRole.resident 
-        ? _buildAccessRestricted() 
-        : Stack(
+      body: Stack(
+        children: [
+          Column(
             children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24.0),
-                      child: _buildForm(context),
-                    ),
-                  ),
-                  _buildConfirmButton(context),
-                ],
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: _buildForm(context),
+                ),
               ),
-              if (_isFindingDriver) _buildFindingDriverOverlay(),
+              _buildConfirmButton(context),
             ],
           ),
+          if (_isFindingDriver) _buildFindingDriverOverlay(),
+        ],
+      ),
+
+
     );
   }
 
-  Widget _buildAccessRestricted() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.amber.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.lock_person_rounded, size: 48, color: AppColors.amber),
-            ),
-            const SizedBox(height: 20),
-            const Text('Access Restricted', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('Only household accounts can schedule pickups.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildForm(BuildContext context) {
     return Column(
@@ -162,9 +139,14 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         const SizedBox(height: 14),
         _buildCategoryGrid(),
         const SizedBox(height: 28),
-        _buildDateTimeSection(context),
+        _buildPickupTypeSelector(),
         const SizedBox(height: 28),
+        if (!_isImmediate) ...[
+          _buildDateTimeSection(context),
+          const SizedBox(height: 28),
+        ],
         _buildPhotoSection(),
+
       ],
     );
   }
@@ -330,6 +312,63 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       ),
     );
   }
+  Widget _buildPickupTypeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('When should we come?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildTypeTab('Pickup Now', Icons.bolt_rounded, _isImmediate, AppColors.amber),
+              ),
+              Expanded(
+                child: _buildTypeTab('Schedule Later', Icons.calendar_month_rounded, !_isImmediate, AppColors.primary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTypeTab(String label, IconData icon, bool selected, Color color) {
+    return GestureDetector(
+      onTap: () => setState(() => _isImmediate = label == 'Pickup Now'),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: selected ? color : AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildDateTimeSection(BuildContext context) {
     return Row(
@@ -443,26 +482,35 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 20),
                   const SizedBox(width: 8),
-                  const Text('Schedule Collection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(_isImmediate ? 'Request Immediate Pickup' : 'Confirm Schedule', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
+
         ),
       ),
     );
   }
 
   Future<void> _handleSchedule() async {
-    if (_selectedDate == null || _selectedTime == null) {
+    if (!_isImmediate && (_selectedDate == null || _selectedTime == null)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select date and time')));
       return;
     }
+
 
     setState(() { _isLoading = true; _isFindingDriver = true; });
     try {
       String? photoUrl;
       if (_imageBytes != null) photoUrl = await _supabaseService.uploadWastePhoto(_imageBytes!, 'jpg');
       
-      final dateStr = '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime!.format(context)}';
+      String dateStr;
+      if (_isImmediate) {
+        final now = DateTime.now();
+        dateStr = 'NOW: ${now.year}-${now.month}-${now.day} ${TimeOfDay.now().format(context)}';
+      } else {
+        dateStr = '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime!.format(context)}';
+      }
+
       
       final lat = _currentPosition?.latitude ?? -1.2921;
       final lng = _currentPosition?.longitude ?? 36.8219;
@@ -474,19 +522,52 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         latitude: lat,
         longitude: lng,
         photoUrl: photoUrl,
+        isImmediate: _isImmediate,
       );
 
-      await Future.delayed(const Duration(seconds: 2));
+      if (_isImmediate) {
+        // Real-time broadcast: Listen for a driver to accept
+        bool collectorFound = false;
+        
+        // Use a stream to listen for updates to this pickup
+        // This assumes the schedulePickup method returns or we can find the 
+        // latest pickup for this user. Actually, a better way is to return the ID
+        // from schedulePickup. Let's assume we can get it or use a simplified listener.
+        
+        // For now, we'll fetch the latest pickup ID and listen to it
+        final myPickups = await _supabaseService.getPickups();
+        if (myPickups.isNotEmpty) {
+          final pickupId = myPickups.first['id'].toString();
+          
+          await for (final status in _supabaseService.streamPickupStatus(pickupId)) {
+            if (status['collector_id'] != null) {
+              collectorFound = true;
+              break;
+            }
+            // Timeout manually after 45 seconds
+            if (DateTime.now().difference(now) > const Duration(seconds: 45)) break;
+          }
+        }
 
-      if (!mounted) return;
-      Navigator.pushNamed(context, '/home');
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup requested! Nearby collectors have been notified. 🎉'), backgroundColor: AppColors.success));
+        if (!mounted) return;
+        if (collectorFound) {
+          Navigator.pushNamed(context, '/home');
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Collector Found! They are on their way. 🚛'), backgroundColor: AppColors.success));
+        } else {
+          Navigator.pushNamed(context, '/home');
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent! No immediate collectors found, but your request is now live in the queue.'), backgroundColor: AppColors.primary));
+        }
+      } else {
+        Navigator.pushNamed(context, '/home');
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup scheduled successfully! 🎉'), backgroundColor: AppColors.success));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() { _isLoading = false; _isFindingDriver = false; });
     }
   }
+
 
   Widget _buildFindingDriverOverlay() {
     return AnimatedBuilder(

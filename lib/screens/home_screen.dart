@@ -64,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
+        role: userProvider.isCollector ? UserRole.collector : UserRole.resident,
         onTap: (index) {
           setState(() => _currentIndex = index);
           if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
@@ -71,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (index == 3) Navigator.pushNamed(context, '/profile');
         },
       ),
+
     );
   }
 

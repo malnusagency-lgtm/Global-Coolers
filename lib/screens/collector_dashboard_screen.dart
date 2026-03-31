@@ -77,43 +77,63 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
             const SizedBox(height: 12),
             Text('A resident near you has requested a ${pickup['waste_type']} pickup.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 24),
+            const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: OutlinedButton(
-                  onPressed: () {
-                    _isShowingRequest = false;
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Decline'),
-                )),
-                const SizedBox(width: 12),
-                Expanded(child: ElevatedButton(
-                  onPressed: () async {
-                    _isShowingRequest = false;
-                    Navigator.pop(context);
-                    await _handleAcceptRequest(pickup, immediate: true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      _isShowingRequest = false;
+                      Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Decline'),
                   ),
-                  child: const Text('Accept & Proceed', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                )),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      _isShowingRequest = false;
+                      Navigator.pop(context);
+                      await _handleAcceptRequest(pickup, immediate: true);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Accept Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () async {
-                _isShowingRequest = false;
-                Navigator.pop(context);
-                _handleRespondByScheduling(pickup);
-              },
-              child: const Text('Respond by Scheduling'),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () async {
+                  _isShowingRequest = false;
+                  Navigator.pop(context);
+                  _handleRespondByScheduling(pickup);
+                },
+                icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                label: const Text('Respond by Scheduling'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
+
   }
 
   Future<void> _handleAcceptRequest(Map<String, dynamic> pickup, {bool immediate = true}) async {
@@ -202,25 +222,21 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Collector Dashboard'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Collector Dashboard', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(userProvider.isOnline ? 'You are visible to residents' : 'You are currently offline', 
+                 style: TextStyle(fontSize: 11, color: userProvider.isOnline ? AppColors.success : AppColors.textSecondary)),
+          ],
+        ),
         automaticallyImplyLeading: false, 
         actions: [
           _buildOnlineToggle(userProvider),
-          Container(
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, size: 22),
-              onPressed: () => Navigator.pushNamed(context, '/notifications'),
-            ),
-          ),
           const SizedBox(width: 8),
         ],
       ),
+
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
@@ -581,7 +597,18 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
             ],
           )),
           const SizedBox(width: 8),
+          if (pickup['latitude'] != null && pickup['longitude'] != null)
+            IconButton(
+              icon: const Icon(Icons.directions_rounded, color: AppColors.primary, size: 24),
+              onPressed: () => _supabaseService.launchMaps(
+                (pickup['latitude'] as num).toDouble(),
+                (pickup['longitude'] as num).toDouble(),
+              ),
+              tooltip: 'Navigate',
+            ),
+          const SizedBox(width: 4),
           if (isMine)
+
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
@@ -723,7 +750,19 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                   Text('${p['profiles']?['full_name'] ?? 'Resident'} • $wasteType', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ]),
               ),
+              const SizedBox(width: 8),
+              if (p['latitude'] != null && p['longitude'] != null)
+                IconButton(
+                  icon: const Icon(Icons.directions_rounded, color: AppColors.primary, size: 24),
+                  onPressed: () => _supabaseService.launchMaps(
+                    (p['latitude'] as num).toDouble(),
+                    (p['longitude'] as num).toDouble(),
+                  ),
+                  tooltip: 'Navigate',
+                ),
+              const SizedBox(width: 8),
               if (status == 'in_transit')
+
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),

@@ -100,7 +100,9 @@ class UserProvider extends ChangeNotifier {
         _userName = data['full_name'] ?? 'User';
         _ecoPoints = data['eco_points'] ?? 0;
         _totalWasteDiverted = data['co2_saved'] ?? 0;
-        _role = data['role'] == 'collector' ? AppRole.collector : AppRole.resident;
+        final roleStr = (data['role'] as String? ?? 'resident').toLowerCase();
+        _role = roleStr == 'collector' ? AppRole.collector : AppRole.resident;
+
         _isOnline = data['is_online'] ?? false;
         _latitude = (data['latitude'] as num?)?.toDouble();
         _longitude = (data['longitude'] as num?)?.toDouble();

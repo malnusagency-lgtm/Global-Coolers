@@ -64,8 +64,11 @@ class UserProvider extends ChangeNotifier {
 
       // 1. FAST PATH: Pull locally cached data for instant UI
       final prefs = await SharedPreferences.getInstance();
+      final cachedUserId = prefs.getString('cache_userId');
       final cachedName = prefs.getString('cache_userName');
-      if (cachedName != null) {
+      
+      // ONLY use cache if the cached user ID matches the logged in user
+      if (cachedUserId == _userId && cachedName != null) {
         _userName = cachedName;
         _ecoPoints = prefs.getInt('cache_ecoPoints') ?? 0;
         _totalWasteDiverted = prefs.getInt('cache_co2') ?? 0;
@@ -112,6 +115,7 @@ class UserProvider extends ChangeNotifier {
         _lastError = null;
 
         // Update local cache quietly
+        await prefs.setString('cache_userId', _userId);
         await prefs.setString('cache_userName', _userName);
         await prefs.setInt('cache_ecoPoints', _ecoPoints);
         await prefs.setInt('cache_co2', _totalWasteDiverted);

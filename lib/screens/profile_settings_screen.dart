@@ -135,12 +135,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline_rounded, AppColors.indigo, () {
                 _showEditProfileDialog(context, userProvider);
               }),
-              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, AppColors.teal, () {
-                Navigator.pushNamed(context, '/my-address');
-              }),
-              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card_rounded, AppColors.amber, () {
-                Navigator.pushNamed(context, '/payment-methods');
-              }),
+              
+              if (!userProvider.isCollector) ...[
+                _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, AppColors.teal, () {
+                  Navigator.pushNamed(context, '/my-address');
+                }),
+                _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card_rounded, AppColors.amber, () {
+                  Navigator.pushNamed(context, '/payment-methods');
+                }),
+              ],
+
               _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none_rounded, AppColors.primary, () {
                 Navigator.pushNamed(context, '/notifications');
               }),

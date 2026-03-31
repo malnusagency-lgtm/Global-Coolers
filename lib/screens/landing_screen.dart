@@ -41,7 +41,7 @@ class LandingScreen extends StatelessWidget {
                       width: 300,
                       height: 300,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.primary.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -56,7 +56,7 @@ class LandingScreen extends StatelessWidget {
                           final isEnglish = localeProvider.locale.languageCode == 'en';
                           return Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
+                              color: Colors.white.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: TextButton(
@@ -81,9 +81,9 @@ class LandingScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.2),
+                            color: AppColors.primary.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                           ),
                           child: const Text(
                             'GLOBAL COOLERS',
@@ -122,7 +122,7 @@ class LandingScreen extends StatelessWidget {
                         Text(
                           l10n.translate('landing_subtitle'),
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: Colors.white.withOpacity(0.7),
                             fontSize: 16,
                             height: 1.5,
                           ),
@@ -210,7 +210,7 @@ class LandingScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -299,7 +299,7 @@ class LandingScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(icon, color: AppColors.primary, size: 32),

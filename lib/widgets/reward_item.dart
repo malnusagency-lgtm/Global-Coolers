@@ -53,7 +53,7 @@ class RewardItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -65,7 +65,7 @@ class RewardItem extends StatelessWidget {
           Container(
             height: 100,
             decoration: BoxDecoration(
-              color: _parseColor(colorHex).withValues(alpha: 0.1),
+              color: _parseColor(colorHex).withOpacity(0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Center(

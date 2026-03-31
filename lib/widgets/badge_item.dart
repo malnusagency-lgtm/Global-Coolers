@@ -24,7 +24,7 @@ class BadgeItem extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: isLocked ? Colors.grey.shade200 : color.withValues(alpha: 0.1),
+            color: isLocked ? Colors.grey.shade200 : color.withOpacity(0.1),
             shape: BoxShape.circle,
             border: Border.all(
               color: isLocked ? Colors.transparent : color,

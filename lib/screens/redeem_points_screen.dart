@@ -40,7 +40,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -66,7 +66,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: AppColors.primary.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.eco, color: AppColors.primary, size: 24),
@@ -244,7 +244,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -256,7 +256,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
               Container(
                 height: 100,
                 width: double.infinity,
-                color: parseColor(colorHex).withValues(alpha: 0.1),
+                color: parseColor(colorHex).withOpacity(0.1),
                 child: Center(
                   child: Icon(
                     mapIcon(iconName), 

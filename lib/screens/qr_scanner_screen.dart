@@ -132,7 +132,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
+                  color: AppColors.success.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.check_circle, color: AppColors.success, size: 56),
@@ -284,7 +284,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
 
           // Dark scan overlay with center cutout effect
           Container(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withOpacity(0.5),
           ),
 
           // Scanner frame
@@ -305,7 +305,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
+                      color: AppColors.primary.withOpacity(0.3),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
@@ -316,7 +316,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                   children: [
                     Icon(
                       _isScanning ? Icons.qr_code_scanner : Icons.hourglass_top,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       size: 48,
                     ),
                   ],

@@ -114,11 +114,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               const SizedBox(width: 8),
                               // 1st Place
                               if (top3.isNotEmpty)
-                                _buildPodiumItem(top3[0]['full_name'] ?? 'Champion', _formatMetric(_selectedMetric == 0 ? top3[0]['co2_saved'] : top3[0]['eco_points']), 1, 170, AppColors.primary.withValues(alpha: 0.15)),
+                                _buildPodiumItem(top3[0]['full_name'] ?? 'Champion', _formatMetric(_selectedMetric == 0 ? top3[0]['co2_saved'] : top3[0]['eco_points']), 1, 170, AppColors.primary.withOpacity(0.15)),
                               const SizedBox(width: 8),
                               // 3rd Place
                               if (top3.length > 2)
-                                _buildPodiumItem(top3[2]['full_name'] ?? 'Guest', _formatMetric(_selectedMetric == 0 ? top3[2]['co2_saved'] : top3[2]['eco_points']), 3, 90, Colors.orange.withValues(alpha: 0.15)),
+                                _buildPodiumItem(top3[2]['full_name'] ?? 'Guest', _formatMetric(_selectedMetric == 0 ? top3[2]['co2_saved'] : top3[2]['eco_points']), 3, 90, Colors.orange.withOpacity(0.15)),
                             ],
                           ),
                         ],
@@ -163,7 +163,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     const SizedBox(width: 16),
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.3),
+                      backgroundColor: AppColors.primary.withOpacity(0.3),
                       child: const Icon(Icons.person, color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 12),
@@ -215,7 +215,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(30),
-            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : null,
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)] : null,
           ),
           child: Center(
             child: Text(label, style: TextStyle(color: isSelected ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
@@ -290,7 +290,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Row(
         children: [
@@ -300,7 +300,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            backgroundColor: AppColors.primary.withOpacity(0.1),
             child: const Icon(Icons.person, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 14),

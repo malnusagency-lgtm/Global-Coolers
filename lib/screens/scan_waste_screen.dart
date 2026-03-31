@@ -46,7 +46,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
               child: const Column(
                 children: [
                    Icon(Icons.local_drink, color: AppColors.primary, size: 40),
@@ -100,7 +100,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen> {
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.center_focus_weak, color: Colors.white.withValues(alpha: 0.5), size: 40),
+                      Icon(Icons.center_focus_weak, color: Colors.white.withOpacity(0.5), size: 40),
                     ],
                   ),
             ),

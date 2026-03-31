@@ -32,22 +32,22 @@ class NotificationCard extends StatelessWidget {
     switch (type) {
       case NotificationType.system:
         iconColor = AppColors.primary;
-        bgColor = AppColors.primary.withValues(alpha: 0.1);
+        bgColor = AppColors.primary.withOpacity(0.1);
         icon = Icons.info_outline;
         break;
       case NotificationType.community:
         iconColor = AppColors.info;
-        bgColor = AppColors.info.withValues(alpha: 0.1);
+        bgColor = AppColors.info.withOpacity(0.1);
         icon = Icons.people_outline;
         break;
       case NotificationType.activity:
         iconColor = AppColors.warning;
-        bgColor = AppColors.warning.withValues(alpha: 0.1);
+        bgColor = AppColors.warning.withOpacity(0.1);
         icon = Icons.local_activity_outlined;
         break;
       case NotificationType.alert:
         iconColor = AppColors.error;
-        bgColor = AppColors.error.withValues(alpha: 0.1);
+        bgColor = AppColors.error.withOpacity(0.1);
         icon = Icons.warning_amber_rounded;
         break;
     }
@@ -62,7 +62,7 @@ class NotificationCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
+              color: Colors.black.withOpacity(0.02),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -134,7 +134,7 @@ class NotificationCard extends StatelessWidget {
                 child: TextButton(
                   onPressed: onAction,
                   style: TextButton.styleFrom(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

@@ -125,7 +125,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> wit
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
+                color: Colors.black.withOpacity(0.02),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -136,7 +136,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> wit
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: (n['color'] as Color).withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: (n['color'] as Color).withOpacity(0.1), shape: BoxShape.circle),
                 child: Icon(n['icon'] as IconData, color: n['color'] as Color, size: 20),
               ),
               const SizedBox(width: 16),

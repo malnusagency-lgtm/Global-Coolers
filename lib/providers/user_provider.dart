@@ -179,14 +179,22 @@ class UserProvider extends ChangeNotifier {
     if (_userId.isEmpty || !isCollector) return;
     
     final newStatus = !_isOnline;
+    
+    // Optimistic update
+    _isOnline = newStatus;
+    notifyListeners();
+
     try {
       await SupabaseService().updateOnlineStatus(newStatus);
-      _isOnline = newStatus;
-      notifyListeners();
     } catch (e) {
+      // Revert if error occurs
+      _isOnline = !newStatus;
+      notifyListeners();
       debugPrint('Toggle online status error: $e');
+      throw Exception('Failed to go online. Please ensure "is_online" column (boolean) exists in your Supabase "profiles" table.');
     }
   }
+
 
   Future<void> updateCurrentLocation(double lat, double lng) async {
     _latitude = lat;

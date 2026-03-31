@@ -6,6 +6,8 @@ import '../providers/user_provider.dart';
 import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
 import '../services/api_service.dart';
+import './privacy_policy_screen.dart';
+
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -158,8 +160,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                  Navigator.pushNamed(context, '/support');
               }),
               _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline_rounded, AppColors.purple, () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Privacy Policy opening...')));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+                );
               }),
+
               _buildSettingItem(l10n.translate('log_out'), Icons.logout_rounded, AppColors.error, () async {
                 await userProvider.signOut();
                 if (!mounted) return;

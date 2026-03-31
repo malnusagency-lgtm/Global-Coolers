@@ -229,7 +229,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       if (!mounted) return;
       
       // Step 5: Show Success Dialog
-      await showDialog(
+      final bool goToRewards = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
@@ -246,24 +246,43 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             textAlign: TextAlign.center,
           ),
           actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Go to Dashboard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                child: const Text('Let\'s Go!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: const Icon(Icons.card_giftcard_rounded, color: AppColors.primary, size: 20),
+                    label: const Text('Explore Rewards', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-      );
+      ) ?? false;
 
       if (!mounted) return;
-      final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
-      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+      
+      if (goToRewards) {
+        Navigator.pushNamedAndRemoveUntil(context, '/rewards', (route) => false);
+      } else {
+        final route = _selectedRoleIndex == 1 ? '/collector-dashboard' : '/home';
+        Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+      }
+
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -560,14 +579,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   children: [
                     const Text('I agree to the ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     GestureDetector(
-                      onTap: () {}, // TODO: Open URL
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+                        );
+                      },
                       child: const Text('Terms & Conditions', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
                     ),
                     const Text(' and ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     GestureDetector(
-                      onTap: () {}, // TODO: Open URL
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+                        );
+                      },
                       child: const Text('Privacy Policy', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
                     ),
+
                   ],
                 ),
               ),

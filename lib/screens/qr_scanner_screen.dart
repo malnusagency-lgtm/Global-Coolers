@@ -203,7 +203,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -211,9 +210,28 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                   ),
                 ],
               ),
+
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx); // Close dialog
+                    Navigator.pushReplacementNamed(context, '/rewards');
+                  },
+                  icon: const Icon(Icons.card_giftcard_rounded, color: AppColors.primary, size: 20),
+                  label: const Text('Explore Rewards', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: AppColors.primary.withOpacity(0.05),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
+
       ),
     );
   }

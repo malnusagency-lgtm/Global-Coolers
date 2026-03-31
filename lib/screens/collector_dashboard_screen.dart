@@ -314,14 +314,24 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
           Switch(
             value: provider.isOnline,
             onChanged: (_) async {
-              await provider.toggleOnlineStatus();
-              if (provider.isOnline) {
-                _supabaseService.updateLocationFromGps();
+              try {
+                await provider.toggleOnlineStatus();
+                if (provider.isOnline) {
+                  _supabaseService.updateLocationFromGps();
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                    backgroundColor: AppColors.error,
+                  ));
+                }
               }
             },
             activeColor: AppColors.success,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
+
         ],
       ),
     );

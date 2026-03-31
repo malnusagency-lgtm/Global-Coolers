@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-enum NotificationType { system, community, activity, alert }
+enum NotificationType { system, community, activity, alert, info, success }
 
 class NotificationCard extends StatelessWidget {
   final String title;
@@ -12,6 +12,7 @@ class NotificationCard extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final IconData? icon;
+  final Color? color;
 
   const NotificationCard({
     super.key,
@@ -23,6 +24,7 @@ class NotificationCard extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.icon,
+    this.color,
   });
 
   @override
@@ -52,6 +54,21 @@ class NotificationCard extends StatelessWidget {
         bgColor = AppColors.error.withOpacity(0.1);
         displayIcon = icon ?? Icons.warning_amber_rounded;
         break;
+      case NotificationType.info:
+        iconColor = AppColors.info;
+        bgColor = AppColors.info.withOpacity(0.1);
+        displayIcon = icon ?? Icons.info_outline;
+        break;
+      case NotificationType.success:
+        iconColor = AppColors.primary;
+        bgColor = AppColors.primary.withOpacity(0.1);
+        displayIcon = icon ?? Icons.check_circle_outline;
+        break;
+    }
+
+    if (color != null) {
+      iconColor = color!;
+      bgColor = color!.withOpacity(0.1);
     }
 
     return GestureDetector(

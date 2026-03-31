@@ -64,6 +64,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                             time: n.time,
                             icon: n.icon,
                             color: n.color,
+                            type: n.type,
                           ),
                         );
                       },
@@ -89,6 +90,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       icon: Icons.celebration,
       color: AppColors.primary,
       category: 'System',
+      type: NotificationType.system,
     ));
 
     for (var item in data) {
@@ -105,6 +107,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             icon: Icons.schedule,
             color: AppColors.info,
             category: 'Activity',
+            type: NotificationType.activity,
           ));
         } else if (status == 'completed') {
           list.add(_NotificationData(
@@ -114,6 +117,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             icon: Icons.check_circle,
             color: AppColors.success,
             category: 'Activity',
+            type: NotificationType.success,
           ));
         }
       } else {
@@ -126,6 +130,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             icon: Icons.local_shipping,
             color: AppColors.warning,
             category: 'Activity',
+            type: NotificationType.activity,
           ));
         }
       }
@@ -178,6 +183,7 @@ class _NotificationData {
   final IconData icon;
   final Color color;
   final String category;
+  final NotificationType type;
 
   _NotificationData({
     required this.title,
@@ -186,5 +192,6 @@ class _NotificationData {
     required this.icon,
     required this.color,
     required this.category,
+    required this.type,
   });
 }

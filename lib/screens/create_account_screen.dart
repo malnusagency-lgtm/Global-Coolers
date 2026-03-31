@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
+import './privacy_policy_screen.dart';
+
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});

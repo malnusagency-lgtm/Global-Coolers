@@ -174,7 +174,8 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   }
 
   void _startLocationUpdates() {
-    _locationUpdateTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+    // Update GPS every 30 seconds when online (for real-time tracking)
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       final userProvider = context.read<UserProvider>();
       if (userProvider.isOnline) {
         _supabaseService.updateLocationFromGps();

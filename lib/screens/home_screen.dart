@@ -264,6 +264,24 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(pickup['date'] ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             if (pickup['address'] != null)
               Text(pickup['address'], style: TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if (pickup['weight_kg'] != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(color: typeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text('${(pickup['weight_kg'] as num).toDouble() % 1 == 0 ? (pickup['weight_kg'] as num).toInt() : pickup['weight_kg']}kg', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: typeColor)),
+                  ),
+                if (pickup['cost_kes'] != null && (pickup['cost_kes'] as num) > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text('KES ${pickup['cost_kes']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  ),
+              ],
+            ),
           ])),
           const SizedBox(width: 8),
           Column(

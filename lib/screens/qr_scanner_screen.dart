@@ -81,17 +81,30 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
       if (!mounted) return;
       Navigator.pop(context); // Pop loading
 
-      // Award 50 EcoPoints
-      final int pointsAwarded = 50;
-      await _supabaseService.completePickup(pickup['id'], pickup['user_id'], pointsAwarded);
+      // Calculate points from weight
+      final double weightKg = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
+      final int costKes = (pickup['cost_kes'] as num?)?.toInt() ?? 0;
+      final int residentPoints = (weightKg * 20).round();  // Resident earns 20 pts/kg
+      final int collectorPoints = (weightKg * 10).round();  // Collector earns 10 pts/kg
+
+      // Award points to BOTH resident and collector
+      await _supabaseService.completePickup(
+        pickup['id'].toString(),
+        pickup['user_id'].toString(),
+        residentPoints,
+        collectorPoints: collectorPoints,
+      );
 
       if (!mounted) return;
 
-      // Show animated success dialog
+      // Show animated success dialog with earnings breakdown
       _showSuccessDialog(
         residentName: pickup['profiles']?['full_name'] ?? 'Resident',
         wasteType: pickup['waste_type'] ?? 'Waste',
-        pointsAwarded: pointsAwarded,
+        pointsAwarded: collectorPoints,
+        residentPoints: residentPoints,
+        weightKg: weightKg,
+        costKes: costKes,
       );
     } catch (e) {
       if (!mounted) return;
@@ -116,6 +129,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
     required String residentName,
     required String wasteType,
     required int pointsAwarded,
+    int residentPoints = 0,
+    double weightKg = 1.0,
+    int costKes = 0,
   }) {
     showDialog(
       context: context,
@@ -144,13 +160,32 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
               ),
               const SizedBox(height: 12),
               Text(
-                '$residentName\'s $wasteType pickup has been completed.',
+                '$residentName\'s $wasteType pickup (${weightKg % 1 == 0 ? weightKg.toInt() : weightKg}kg) completed.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
+              const SizedBox(height: 20),
+
+              // Earnings breakdown
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _earningsRow('Pickup Value', 'KES $costKes', AppColors.textPrimary),
+                    const SizedBox(height: 10),
+                    _earningsRow('Your Earnings', '+$pointsAwarded pts', AppColors.primary),
+                    const SizedBox(height: 10),
+                    _earningsRow('Resident Earned', '+$residentPoints pts', AppColors.teal),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
-              // Points awarded chip
+              // Your points chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 decoration: BoxDecoration(
@@ -165,7 +200,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                     const Icon(Icons.stars_rounded, color: Colors.white, size: 22),
                     const SizedBox(width: 8),
                     Text(
-                      '+$pointsAwarded EcoPoints Awarded',
+                      '+$pointsAwarded EcoPoints Earned!',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -394,6 +429,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
           ),
         ],
       ),
+    );
+  }
+  Widget _earningsRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: valueColor)),
+      ],
     );
   }
 }

@@ -47,6 +47,8 @@ class ApiService {
     required String wasteType,
     required String address,
     String? photoUrl,
+    double weightKg = 1.0,
+    int costKes = 0,
   }) async {
     final random = Random();
     final qrCode = 'GC-${DateTime.now().millisecondsSinceEpoch}-${random.nextInt(9999)}';
@@ -58,7 +60,9 @@ class ApiService {
       'address': address,
       'status': 'scheduled',
       'photo_url': photoUrl,
-      'qr_code': qrCode,
+      'qr_code_id': qrCode,
+      'weight_kg': weightKg,
+      'cost_kes': costKes,
     }).select().single();
 
     return response;

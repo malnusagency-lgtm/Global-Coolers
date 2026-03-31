@@ -14,10 +14,12 @@ class LiveTrackingScreen extends StatefulWidget {
 
 class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   LatLng _collectorLocation = const LatLng(-1.2960, 36.8150);
-  final LatLng _userLocation = const LatLng(-1.2921, 36.8219);
+  LatLng _userLocation = const LatLng(-1.2921, 36.8219);
   StreamSubscription? _locationSubscription;
   final SupabaseService _supabaseService = SupabaseService();
-  String _eta = '12 mins';
+  String _eta = 'Calculating...';
+  String _collectorName = 'Collector';
+  String _collectorPhone = '';
   bool _isInit = false;
 
   @override
@@ -27,7 +29,30 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final collectorId = args?['collectorId'] ?? 'DEMO_COLLECTOR_ID';
       _startTracking(collectorId);
+      _loadCollectorProfile(collectorId);
+      _loadMyLocation();
       _isInit = true;
+    }
+  }
+
+  Future<void> _loadMyLocation() async {
+    final pos = await _supabaseService.getCurrentPosition();
+    if (pos != null && mounted) {
+      setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
+    }
+  }
+
+  Future<void> _loadCollectorProfile(String collectorId) async {
+    try {
+      final profile = await _supabaseService.getProfileById(collectorId);
+      if (mounted) {
+        setState(() {
+          _collectorName = profile['full_name'] ?? 'Collector';
+          _collectorPhone = profile['phone'] ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load collector profile: $e');
     }
   }
 
@@ -37,9 +62,20 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         final profile = data.first;
         if (profile['latitude'] != null && profile['longitude'] != null) {
           setState(() {
-            _collectorLocation = LatLng(profile['latitude'], profile['longitude']);
-            // Simple ETA calculation mockup
-            _eta = '8 mins'; 
+            _collectorLocation = LatLng(
+              (profile['latitude'] as num).toDouble(),
+              (profile['longitude'] as num).toDouble(),
+            );
+            // Real ETA calculation using Haversine distance
+            final distance = const Distance();
+            final distanceKm = distance.as(LengthUnit.Kilometer, _collectorLocation, _userLocation);
+            // Average speed in Nairobi traffic: ~25 km/h
+            final etaMinutes = ((distanceKm / 25.0) * 60).round();
+            if (etaMinutes <= 1) {
+              _eta = 'Arriving now';
+            } else {
+              _eta = '$etaMinutes mins';
+            }
           });
         }
       }
@@ -140,19 +176,34 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      const CircleAvatar(radius: 24, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            _collectorName.isNotEmpty ? _collectorName[0].toUpperCase() : 'C',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('John Kamau', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
-                            Text('4.8 ★ • KBZ 123A', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            Text(_collectorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
+                            Text(_collectorPhone.isNotEmpty ? _collectorPhone : 'Collector', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
-                      _buildActionButton(Icons.phone, AppColors.success),
-                      const SizedBox(width: 12),
+                      if (_collectorPhone.isNotEmpty) ...[
+                        _buildActionButton(Icons.phone, AppColors.success),
+                        const SizedBox(width: 12),
+                      ],
                       _buildActionButton(Icons.message, AppColors.primary),
                     ],
                   ),

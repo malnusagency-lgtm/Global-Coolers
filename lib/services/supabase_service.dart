@@ -83,6 +83,21 @@ class SupabaseService {
     }
   }
 
+  /// Get any user's profile by their ID (for tracking screens)
+  Future<Map<String, dynamic>> getProfileById(String userId) async {
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('SupabaseService GetProfileById Error: $e');
+      rethrow;
+    }
+  }
+
   // ──────────────────────────────────────────────
   //  REWARDS
   // ──────────────────────────────────────────────
@@ -131,7 +146,7 @@ class SupabaseService {
   }
 
   /// Schedules a new waste pickup with real GPS coordinates
-  Future<void> schedulePickup({
+  Future<Map<String, dynamic>> schedulePickup({
     required String date, 
     required String wasteType, 
     required String address,
@@ -139,6 +154,8 @@ class SupabaseService {
     double? longitude,
     String? photoUrl,
     bool isImmediate = false,
+    double weightKg = 1.0,
+    int costKes = 0,
   }) async {
 
     final user = _supabase.auth.currentUser;
@@ -151,8 +168,8 @@ class SupabaseService {
         throw Exception('Access denied: Only households can schedule pickups.');
       }
 
-      // 2. Insert pickup record (Broadcast as unassigned)
-      await _supabase.from('pickups').insert({
+      // 2. Insert pickup record (Broadcast as unassigned) and return data
+      final response = await _supabase.from('pickups').insert({
         'user_id': user.id,
         'date': date,
         'waste_type': wasteType,
@@ -164,7 +181,11 @@ class SupabaseService {
         'collector_id': null,
         'is_assigned': false,
         'is_immediate': isImmediate,
-      });
+        'weight_kg': weightKg,
+        'cost_kes': costKes,
+      }).select().single();
+
+      return response;
 
     } catch (e) {
       debugPrint('SupabaseService Schedule Error: $e');
@@ -393,11 +414,29 @@ class SupabaseService {
   //  PICKUP COMPLETION & TRACKING
   // ──────────────────────────────────────────────
 
-  Future<void> completePickup(String pickupId, String userId, int pointsToAward) async {
+  Future<void> completePickup(String pickupId, String residentUserId, int residentPoints, {int collectorPoints = 0}) async {
     try {
-      await _supabase.from('pickups').update({'status': 'completed'}).eq('id', pickupId);
-      final profile = await _supabase.from('profiles').select('eco_points').eq('id', userId).single();
-      await _supabase.from('profiles').update({'eco_points': (profile['eco_points'] as int) + pointsToAward}).eq('id', userId);
+      final collectorId = _supabase.auth.currentUser?.id;
+
+      // 1. Mark pickup as completed and store points
+      await _supabase.from('pickups').update({
+        'status': 'completed',
+        'points_awarded': residentPoints,
+      }).eq('id', pickupId);
+
+      // 2. Award points to the Resident
+      final residentProfile = await _supabase.from('profiles').select('eco_points').eq('id', residentUserId).single();
+      await _supabase.from('profiles').update({
+        'eco_points': (residentProfile['eco_points'] as int) + residentPoints,
+      }).eq('id', residentUserId);
+
+      // 3. Award points to the Collector
+      if (collectorId != null && collectorPoints > 0) {
+        final collectorProfile = await _supabase.from('profiles').select('eco_points').eq('id', collectorId).single();
+        await _supabase.from('profiles').update({
+          'eco_points': (collectorProfile['eco_points'] as int) + collectorPoints,
+        }).eq('id', collectorId);
+      }
     } catch (e) {
       debugPrint('Complete Pickup Error: $e');
       rethrow;

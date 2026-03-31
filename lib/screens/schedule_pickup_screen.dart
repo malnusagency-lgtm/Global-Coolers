@@ -20,7 +20,16 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
   bool _isFindingDriver = false;
-  bool _isImmediate = true; // Default to Immediate
+  bool _isImmediate = true;
+
+  // ── Weight & Cost ──
+  double _selectedWeight = 1.0;
+  int _estimatedCost = 0;
+
+  final List<double> _weightOptions = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+
+  // Rate per kg for each waste type (KES)
+  final List<int> _ratesPerKg = [30, 50, 25, 80, 100, 150];
 
   Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
@@ -50,12 +59,18 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     )..repeat(reverse: true);
     _loadSavedAddresses();
     _fetchLocation();
+    _updateCost();
+  }
+
+  void _updateCost() {
+    setState(() {
+      _estimatedCost = (_selectedWeight * _ratesPerKg[_selectedCategoryIndex]).round();
+    });
   }
 
   Future<void> _loadSavedAddresses() async {
     final addresses = await _supabaseService.getUserAddresses();
     if (mounted) setState(() => _savedAddresses = addresses);
-    // Auto-fill default address
     final defaultAddr = await _supabaseService.getDefaultAddress();
     if (defaultAddr != null && _addressController.text.isEmpty && mounted) {
       _addressController.text = defaultAddr['address'] ?? '';
@@ -67,7 +82,6 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     if (pos != null && mounted) {
       setState(() => _currentPosition = pos);
       if (_addressController.text.isEmpty) {
-        // Reverse geocode to get human-readable address
         final address = await _supabaseService.reverseGeocode(pos.latitude, pos.longitude);
         if (address != null && mounted) {
           _addressController.text = address;
@@ -96,8 +110,6 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -116,18 +128,15 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                   child: _buildForm(context),
                 ),
               ),
+              _buildCostSummary(),
               _buildConfirmButton(context),
             ],
           ),
           if (_isFindingDriver) _buildFindingDriverOverlay(),
         ],
       ),
-
-
     );
   }
-
-
 
   Widget _buildForm(BuildContext context) {
     return Column(
@@ -139,6 +148,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         const SizedBox(height: 14),
         _buildCategoryGrid(),
         const SizedBox(height: 28),
+        _buildWeightSelector(),
+        const SizedBox(height: 28),
         _buildPickupTypeSelector(),
         const SizedBox(height: 28),
         if (!_isImmediate) ...[
@@ -146,10 +157,140 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
           const SizedBox(height: 28),
         ],
         _buildPhotoSection(),
-
       ],
     );
   }
+
+  // ── Weight Selector ──
+
+  Widget _buildWeightSelector() {
+    final Color catColor = _categories[_selectedCategoryIndex]['color'];
+    final rate = _ratesPerKg[_selectedCategoryIndex];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Estimated Weight', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: catColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'KES $rate/kg',
+                style: TextStyle(color: catColor, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 50,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _weightOptions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final w = _weightOptions[index];
+              final isSelected = _selectedWeight == w;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedWeight = w);
+                  _updateCost();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: isSelected ? catColor : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? catColor : Colors.grey.shade200,
+                      width: isSelected ? 2 : 1.5,
+                    ),
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: catColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${w % 1 == 0 ? w.toInt() : w} kg',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Cost Summary Bar ──
+
+  Widget _buildCostSummary() {
+    final catColor = _categories[_selectedCategoryIndex]['color'] as Color;
+    final residentPoints = (_selectedWeight * 20).round();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: BoxDecoration(
+        color: catColor.withOpacity(0.06),
+        border: Border(top: BorderSide(color: catColor.withOpacity(0.15))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_categories[_selectedCategoryIndex]['name']} • ${_selectedWeight % 1 == 0 ? _selectedWeight.toInt() : _selectedWeight} kg',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      'KES $_estimatedCost',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: catColor),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.stars_rounded, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text('+$residentPoints pts', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Location Card ──
 
   Widget _buildLocationCard() {
     return Column(
@@ -176,7 +317,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.location_on_rounded, 
+                      Icons.location_on_rounded,
                       color: _currentPosition != null ? AppColors.primary : Colors.grey,
                       size: 22,
                     ),
@@ -206,7 +347,6 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                   ),
                 ],
               ),
-              // Saved address chips
               if (_savedAddresses.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 const Divider(height: 1),
@@ -275,14 +415,17 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     final Color catColor = cat['color'];
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedCategoryIndex = index),
+      onTap: () {
+        setState(() => _selectedCategoryIndex = index);
+        _updateCost();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: isSelected ? catColor.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isSelected ? catColor : Colors.grey.shade200, 
+            color: isSelected ? catColor : Colors.grey.shade200,
             width: isSelected ? 2.5 : 1.5,
           ),
           boxShadow: isSelected ? [BoxShadow(color: catColor.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4))] : null,
@@ -300,9 +443,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
             ),
             const SizedBox(height: 8),
             Text(
-              cat['name'], 
+              cat['name'],
               style: TextStyle(
-                fontSize: 12, 
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? catColor : AppColors.textSecondary,
               ),
@@ -312,6 +455,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       ),
     );
   }
+
   Widget _buildPickupTypeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,12 +470,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
           ),
           child: Row(
             children: [
-              Expanded(
-                child: _buildTypeTab('Pickup Now', Icons.bolt_rounded, _isImmediate, AppColors.amber),
-              ),
-              Expanded(
-                child: _buildTypeTab('Schedule Later', Icons.calendar_month_rounded, !_isImmediate, AppColors.primary),
-              ),
+              Expanded(child: _buildTypeTab('Pickup Now', Icons.bolt_rounded, _isImmediate, AppColors.amber)),
+              Expanded(child: _buildTypeTab('Schedule Later', Icons.calendar_month_rounded, !_isImmediate, AppColors.primary)),
             ],
           ),
         ),
@@ -369,24 +509,23 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     );
   }
 
-
   Widget _buildDateTimeSection(BuildContext context) {
     return Row(
       children: [
         Expanded(child: _buildPickerCard('Date', _selectedDate == null ? 'Pick Date' : '${_selectedDate!.day}/${_selectedDate!.month}', Icons.calendar_today_rounded, AppColors.indigo, () async {
           final picked = await showDatePicker(
-            context: context, 
-            initialDate: DateTime.now(), 
-            firstDate: DateTime.now(), 
-            lastDate: DateTime.now().add(const Duration(days: 7))
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime.now(),
+            lastDate: DateTime.now().add(const Duration(days: 7)),
           );
           if (picked != null) setState(() => _selectedDate = picked);
         })),
         const SizedBox(width: 14),
         Expanded(child: _buildPickerCard('Time', _selectedTime == null ? 'Pick Time' : _selectedTime!.format(context), Icons.access_time_rounded, AppColors.teal, () async {
           final picked = await showTimePicker(
-            context: context, 
-            initialTime: TimeOfDay.now()
+            context: context,
+            initialTime: TimeOfDay.now(),
           );
           if (picked != null) setState(() => _selectedTime = picked);
         })),
@@ -440,7 +579,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.grey.shade200, style: _imageBytes == null ? BorderStyle.solid : BorderStyle.none),
             ),
-            child: _imageBytes != null 
+            child: _imageBytes != null
               ? ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.memory(_imageBytes!, fit: BoxFit.cover))
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -475,17 +614,19 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           onPressed: _isLoading ? null : _handleSchedule,
-          child: _isLoading 
+          child: _isLoading
             ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_rounded, size: 20),
                   const SizedBox(width: 8),
-                  Text(_isImmediate ? 'Request Immediate Pickup' : 'Confirm Schedule', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(
+                    _isImmediate ? 'Request Now • KES $_estimatedCost' : 'Confirm • KES $_estimatedCost',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 ],
               ),
-
         ),
       ),
     );
@@ -497,12 +638,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       return;
     }
 
-
     setState(() { _isLoading = true; _isFindingDriver = true; });
     try {
       String? photoUrl;
       if (_imageBytes != null) photoUrl = await _supabaseService.uploadWastePhoto(_imageBytes!, 'jpg');
-      
+
       String dateStr;
       if (_isImmediate) {
         final now = DateTime.now();
@@ -511,11 +651,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         dateStr = '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime!.format(context)}';
       }
 
-      
       final lat = _currentPosition?.latitude ?? -1.2921;
       final lng = _currentPosition?.longitude ?? 36.8219;
 
-      await _supabaseService.schedulePickup(
+      // Schedule and get the pickup data back (includes qr_code_id)
+      final pickupData = await _supabaseService.schedulePickup(
         date: dateStr,
         wasteType: _categories[_selectedCategoryIndex]['name'],
         address: _addressController.text.trim(),
@@ -523,45 +663,64 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         longitude: lng,
         photoUrl: photoUrl,
         isImmediate: _isImmediate,
+        weightKg: _selectedWeight,
+        costKes: _estimatedCost,
       );
+
+      final qrCodeId = pickupData['qr_code_id'] ?? 'NO-CODE';
+      final pickupId = pickupData['id'].toString();
 
       if (_isImmediate) {
         // Real-time broadcast: Listen for a driver to accept
         bool collectorFound = false;
-        
-        // Use a stream to listen for updates to this pickup
-        // This assumes the schedulePickup method returns or we can find the 
-        // latest pickup for this user. Actually, a better way is to return the ID
-        // from schedulePickup. Let's assume we can get it or use a simplified listener.
-        
-        // For now, we'll fetch the latest pickup ID and listen to it
-        final myPickups = await _supabaseService.getPickups();
-        if (myPickups.isNotEmpty) {
-          final pickupId = myPickups.first['id'].toString();
-          
-          final startTime = DateTime.now();
-          await for (final status in _supabaseService.streamPickupStatus(pickupId)) {
-            if (status['collector_id'] != null) {
-              collectorFound = true;
-              break;
-            }
-            // Timeout manually after 45 seconds
-            if (DateTime.now().difference(startTime) > const Duration(seconds: 45)) break;
-          }
+        String? collectorId;
 
+        final startTime = DateTime.now();
+        await for (final status in _supabaseService.streamPickupStatus(pickupId)) {
+          if (status['collector_id'] != null) {
+            collectorFound = true;
+            collectorId = status['collector_id'].toString();
+            break;
+          }
+          if (DateTime.now().difference(startTime) > const Duration(seconds: 45)) break;
         }
 
         if (!mounted) return;
-        if (collectorFound) {
-          Navigator.pushNamed(context, '/home');
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Collector Found! They are on their way. 🚛'), backgroundColor: AppColors.success));
+        if (collectorFound && collectorId != null) {
+          // Navigate to Live Tracking with the collector ID
+          Navigator.pushReplacementNamed(
+            context,
+            '/live-tracking',
+            arguments: {'collectorId': collectorId, 'pickupId': pickupId},
+          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Collector found! Tracking live. 🚛'), backgroundColor: AppColors.success));
         } else {
-          Navigator.pushNamed(context, '/home');
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent! No immediate collectors found, but your request is now live in the queue.'), backgroundColor: AppColors.primary));
+          // No immediate collector — navigate to QR confirmation screen
+          Navigator.pushReplacementNamed(
+            context,
+            '/pickup-confirmation',
+            arguments: {
+              'qrCode': qrCodeId,
+              'wasteType': _categories[_selectedCategoryIndex]['name'],
+              'weightKg': _selectedWeight,
+              'costKes': _estimatedCost,
+            },
+          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent! Show your QR code when the collector arrives.'), backgroundColor: AppColors.primary));
         }
       } else {
-        Navigator.pushNamed(context, '/home');
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup scheduled successfully! 🎉'), backgroundColor: AppColors.success));
+        // Scheduled pickup — go to QR confirmation
+        Navigator.pushReplacementNamed(
+          context,
+          '/pickup-confirmation',
+          arguments: {
+            'qrCode': qrCodeId,
+            'wasteType': _categories[_selectedCategoryIndex]['name'],
+            'weightKg': _selectedWeight,
+            'costKes': _estimatedCost,
+          },
+        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup scheduled! 🎉'), backgroundColor: AppColors.success));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -569,7 +728,6 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       if (mounted) setState(() { _isLoading = false; _isFindingDriver = false; });
     }
   }
-
 
   Widget _buildFindingDriverOverlay() {
     return AnimatedBuilder(
@@ -605,6 +763,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
               const Text('Broadcasting request...', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Text('Notifying collectors in your area', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
+              const SizedBox(height: 8),
+              Text(
+                '${_categories[_selectedCategoryIndex]['name']} • ${_selectedWeight}kg • KES $_estimatedCost',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 32),
               SizedBox(
                 width: 160,

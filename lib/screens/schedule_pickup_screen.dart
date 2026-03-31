@@ -335,12 +335,20 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     return Row(
       children: [
         Expanded(child: _buildPickerCard('Date', _selectedDate == null ? 'Pick Date' : '${_selectedDate!.day}/${_selectedDate!.month}', Icons.calendar_today_rounded, AppColors.indigo, () async {
-          final picked = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 1)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
+          final picked = await showDatePicker(
+            context: context, 
+            initialDate: DateTime.now(), 
+            firstDate: DateTime.now(), 
+            lastDate: DateTime.now().add(const Duration(days: 7))
+          );
           if (picked != null) setState(() => _selectedDate = picked);
         })),
         const SizedBox(width: 14),
         Expanded(child: _buildPickerCard('Time', _selectedTime == null ? 'Pick Time' : _selectedTime!.format(context), Icons.access_time_rounded, AppColors.teal, () async {
-          final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+          final picked = await showTimePicker(
+            context: context, 
+            initialTime: TimeOfDay.now()
+          );
           if (picked != null) setState(() => _selectedTime = picked);
         })),
       ],

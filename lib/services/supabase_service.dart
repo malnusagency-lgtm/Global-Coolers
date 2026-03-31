@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 class SupabaseService {
   final _supabase = Supabase.instance.client;
@@ -475,6 +476,48 @@ class SupabaseService {
   Future<List<dynamic>> getPendingPickups() async {
     final response = await _supabase.from('pickups').select('*, profiles(full_name)').eq('status', 'scheduled').order('date', ascending: true);
     return response as List<dynamic>;
+  }
+
+  // ──────────────────────────────────────────────
+  //  COLLECTOR ACTIONS (ACCEPT / ROUTE)
+  // ──────────────────────────────────────────────
+
+  Future<void> acceptPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    final updates = <String, dynamic>{
+      'collector_id': userId,
+      'status': immediate ? 'in_transit' : 'accepted',
+    };
+    
+    if (arrivalTime != null) {
+      updates['scheduled_arrival'] = arrivalTime;
+    }
+
+    try {
+      await _supabase.from('pickups').update(updates).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Accept Pickup Error: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> streamUnassignedPickups() {
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('status', 'scheduled')
+        .map((list) => list.where((p) => p['collector_id'] == null).toList());
+  }
+
+  Future<void> launchMaps(double lat, double lng) async {
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $url';
+    }
   }
 
   Future<void> signOut() async => await _supabase.auth.signOut();

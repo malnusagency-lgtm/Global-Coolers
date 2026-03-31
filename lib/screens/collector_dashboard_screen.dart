@@ -22,19 +22,135 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   bool _isLoadingNearby = false;
   List<Map<String, dynamic>> _nearbyPickups = [];
   late TabController _tabController;
+  
+  // Real-time Request Stream
+  bool _isShowingRequest = false;
+  StreamSubscription? _requestSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _startLocationUpdates();
+    _initRequestStream();
   }
 
   @override
   void dispose() {
     _locationUpdateTimer?.cancel();
+    _requestSubscription?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _initRequestStream() {
+    _requestSubscription = _supabaseService.streamUnassignedPickups().listen((pickups) {
+      final userProvider = context.read<UserProvider>();
+      if (userProvider.isOnline && pickups.isNotEmpty && !_isShowingRequest) {
+        final newRequest = pickups.first;
+        _showNewRequestOverlay(newRequest);
+      }
+    });
+  }
+
+  void _showNewRequestOverlay(Map<String, dynamic> pickup) {
+    if (!mounted) return;
+    _isShowingRequest = true;
+    
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 24),
+            const Text('New Collection Request!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text('A resident near you has requested a ${pickup['waste_type']} pickup.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: () {
+                    _isShowingRequest = false;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Decline'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton(
+                  onPressed: () async {
+                    _isShowingRequest = false;
+                    Navigator.pop(context);
+                    await _handleAcceptRequest(pickup, immediate: true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Accept & Proceed', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                )),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () async {
+                _isShowingRequest = false;
+                Navigator.pop(context);
+                _handleRespondByScheduling(pickup);
+              },
+              child: const Text('Respond by Scheduling'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleAcceptRequest(Map<String, dynamic> pickup, {bool immediate = true}) async {
+    try {
+      await _supabaseService.acceptPickup(pickup['id'].toString(), immediate: immediate);
+      
+      if (immediate) {
+        final lat = (pickup['latitude'] as num?)?.toDouble();
+        final lng = (pickup['longitude'] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          await _supabaseService.launchMaps(lat, lng);
+        }
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup accepted!'), backgroundColor: AppColors.success));
+        setState(() {}); // Refresh list
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _handleRespondByScheduling(Map<String, dynamic> pickup) async {
+    final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (pickedTime != null) {
+      final arrivalTime = pickedTime.format(context);
+      try {
+        await _supabaseService.acceptPickup(pickup['id'].toString(), immediate: false, arrivalTime: arrivalTime);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Confirmed for $arrivalTime.'), backgroundColor: AppColors.success));
+          setState(() {});
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   void _startLocationUpdates() {
@@ -571,62 +687,86 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
         return Column(
           children: pickups.asMap().entries.map((entry) {
             final p = entry.value;
-            return _buildPickupItem(
-              p['address'] ?? 'Address',
-              p['waste_type'] ?? 'Waste',
-              '${p['profiles']?['full_name'] ?? 'Resident'}',
-              p['date'] ?? 'Scheduled',
-              entry.key == 0,
-            );
+            return _buildPickupItem(p, entry.key == 0);
           }).toList(),
         );
       },
     );
   }
 
-  Widget _buildPickupItem(String location, String wasteType, String resident, String time, bool isNext) {
+  Widget _buildPickupItem(Map<String, dynamic> p, bool isNext) {
+    final wasteType = p['waste_type'] ?? 'Waste';
     final visual = ActivityItem.wasteVisual(wasteType);
     final Color typeColor = visual['color'];
     final IconData typeIcon = visual['icon'];
+    final status = p['status'] ?? 'scheduled';
+    final arrival = p['scheduled_arrival'];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isNext ? AppColors.primary.withOpacity(0.04) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: isNext ? Border.all(color: AppColors.primary, width: 1.5) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: typeColor.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(typeIcon, color: typeColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(location, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text('$wasteType • $resident', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-            ]),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text(time.split(' ').first, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isNext ? AppColors.primary : AppColors.textSecondary)),
-              if (isNext) ...[
-                const SizedBox(height: 4),
+              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: typeColor.withOpacity(0.12), shape: BoxShape.circle), child: Icon(typeIcon, color: typeColor, size: 20)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p['address'] ?? 'No Address', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('${p['profiles']?['full_name'] ?? 'Resident'} • $wasteType', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ]),
+              ),
+              if (status == 'in_transit')
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('NEXT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: 0.5)),
+                  child: const Text('ON THE WAY', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                )
+              else if (arrival != null)
+                Text(arrival, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.teal)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: ElevatedButton.icon(
+                onPressed: () async {
+                  final lat = (p['latitude'] as num?)?.toDouble();
+                  final lng = (p['longitude'] as num?)?.toDouble();
+                  if (lat != null && lng != null) {
+                    await _supabaseService.launchMaps(lat, lng);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coordinates not found.')));
+                  }
+                },
+                icon: const Icon(Icons.directions_rounded, size: 16),
+                label: const Text('Get Directions', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
                 ),
-              ],
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                label: const Text('Verify QR', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: BorderSide(color: AppColors.primary.withOpacity(0.4)),
+                ),
+              )),
             ],
           ),
         ],

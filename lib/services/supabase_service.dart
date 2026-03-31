@@ -149,13 +149,7 @@ class SupabaseService {
         throw Exception('Access denied: Only households can schedule pickups.');
       }
 
-      // 2. Find nearest online collector
-      String? assignedCollectorId;
-      if (latitude != null && longitude != null) {
-        assignedCollectorId = await findNearestCollector(latitude, longitude);
-      }
-
-      // 3. Insert pickup record
+      // 2. Insert pickup record (Broadcast as unassigned)
       await _supabase.from('pickups').insert({
         'user_id': user.id,
         'date': date,
@@ -165,8 +159,8 @@ class SupabaseService {
         'photo_url': photoUrl,
         'latitude': latitude,
         'longitude': longitude,
-        'collector_id': assignedCollectorId,
-        'is_assigned': assignedCollectorId != null,
+        'collector_id': null,
+        'is_assigned': false,
       });
     } catch (e) {
       debugPrint('SupabaseService Schedule Error: $e');
@@ -496,7 +490,17 @@ class SupabaseService {
     }
 
     try {
-      await _supabase.from('pickups').update(updates).eq('id', pickupId);
+      // Use filter to prevent race conditions
+      final response = await _supabase
+          .from('pickups')
+          .update(updates)
+          .eq('id', pickupId)
+          .filter('collector_id', 'is', null)
+          .select();
+          
+      if (response.isEmpty) {
+        throw Exception('This pickup has already been accepted by another collector.');
+      }
     } catch (e) {
       debugPrint('Accept Pickup Error: $e');
       rethrow;

@@ -476,11 +476,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         photoUrl: photoUrl,
       );
 
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 2));
 
       if (!mounted) return;
       Navigator.pushNamed(context, '/home');
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Driver assigned! Pickup scheduled successfully. 🎉'), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup requested! Nearby collectors have been notified. 🎉'), backgroundColor: AppColors.success));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
@@ -519,9 +519,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                 ),
               ),
               const SizedBox(height: 36),
-              const Text('Finding nearest collector...', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Broadcasting request...', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              Text('Optimizing your route for the fastest pickup', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
+              Text('Notifying collectors in your area', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
               const SizedBox(height: 32),
               SizedBox(
                 width: 160,

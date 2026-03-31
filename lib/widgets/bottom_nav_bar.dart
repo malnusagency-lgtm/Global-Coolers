@@ -21,16 +21,16 @@ class BottomNavBar extends StatelessWidget {
     switch (role) {
       case UserRole.resident:
         return [
-          _NavItem(Icons.home_rounded, l10n.translate('nyumbani')),
-          _NavItem(Icons.calendar_today_rounded, l10n.translate('ratiba')),
-          _NavItem(Icons.account_balance_wallet_rounded, l10n.translate('tuzo')),
-          _NavItem(Icons.person_rounded, l10n.translate('akaunti')),
+          _NavItem(Icons.home_rounded, Icons.home_outlined, l10n.translate('nyumbani'), AppColors.primary),
+          _NavItem(Icons.calendar_today_rounded, Icons.calendar_today_outlined, l10n.translate('ratiba'), AppColors.teal),
+          _NavItem(Icons.account_balance_wallet_rounded, Icons.account_balance_wallet_outlined, l10n.translate('tuzo'), AppColors.amber),
+          _NavItem(Icons.person_rounded, Icons.person_outlined, l10n.translate('akaunti'), AppColors.indigo),
         ];
       case UserRole.collector:
         return [
-          _NavItem(Icons.map_rounded, l10n.translate('njia')),
-          _NavItem(Icons.history_rounded, l10n.translate('historia')),
-          _NavItem(Icons.person_rounded, l10n.translate('akaunti')),
+          _NavItem(Icons.map_rounded, Icons.map_outlined, l10n.translate('njia'), AppColors.primary),
+          _NavItem(Icons.history_rounded, Icons.history_outlined, l10n.translate('historia'), AppColors.teal),
+          _NavItem(Icons.person_rounded, Icons.person_outlined, l10n.translate('akaunti'), AppColors.indigo),
         ];
     }
   }
@@ -40,9 +40,10 @@ class BottomNavBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -50,53 +51,119 @@ class BottomNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(_items(context).length, (index) {
-              return _buildNavItem(index, _items(context)[index].icon, _items(context)[index].label);
+              final item = _items(context)[index];
+              return _NavItemWidget(
+                index: index,
+                isSelected: currentIndex == index,
+                activeIcon: item.activeIcon,
+                inactiveIcon: item.inactiveIcon,
+                label: item.label,
+                activeColor: item.activeColor,
+                onTap: () => onTap(index),
+              );
             }),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final bool isSelected = currentIndex == index;
+class _NavItemWidget extends StatefulWidget {
+  final int index;
+  final bool isSelected;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
+  final String label;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _NavItemWidget({
+    required this.index,
+    required this.isSelected,
+    required this.activeIcon,
+    required this.inactiveIcon,
+    required this.label,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavItemWidget> createState() => _NavItemWidgetState();
+}
+
+class _NavItemWidgetState extends State<_NavItemWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final Color inactiveColor = AppColors.textSecondary;
-    final Color activeColor = AppColors.primary;
 
     return GestureDetector(
-      onTap: () => onTap(index),
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? activeColor : inactiveColor,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? activeColor : inactiveColor,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isSelected ? 18 : 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? widget.activeColor.withOpacity(0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.isSelected ? widget.activeIcon : widget.inactiveIcon,
+                color: widget.isSelected ? widget.activeColor : inactiveColor,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.isSelected ? widget.activeColor : inactiveColor,
+                  fontSize: 11,
+                  fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -104,7 +171,9 @@ class BottomNavBar extends StatelessWidget {
 }
 
 class _NavItem {
-  final IconData icon;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
   final String label;
-  const _NavItem(this.icon, this.label);
+  final Color activeColor;
+  const _NavItem(this.activeIcon, this.inactiveIcon, this.label, this.activeColor);
 }

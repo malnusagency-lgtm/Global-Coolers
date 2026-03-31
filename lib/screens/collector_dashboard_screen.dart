@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/activity_item.dart';
 import '../services/supabase_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
@@ -13,20 +14,26 @@ class CollectorDashboardScreen extends StatefulWidget {
   State<CollectorDashboardScreen> createState() => _CollectorDashboardScreenState();
 }
 
-class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
+class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> with SingleTickerProviderStateMixin {
   int _currentNavIndex = 0;
   final SupabaseService _supabaseService = SupabaseService();
   Timer? _locationUpdateTimer;
+  bool _showNearbyPickups = false;
+  bool _isLoadingNearby = false;
+  List<Map<String, dynamic>> _nearbyPickups = [];
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _startLocationUpdates();
   }
 
   @override
   void dispose() {
     _locationUpdateTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -37,6 +44,39 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         _supabaseService.updateLocationFromGps();
       }
     });
+  }
+
+  Future<void> _loadNearbyPickups() async {
+    setState(() => _isLoadingNearby = true);
+    try {
+      final pos = await _supabaseService.getCurrentPosition();
+      if (pos != null) {
+        final nearby = await _supabaseService.getNearbyScheduledPickups(
+          pos.latitude, pos.longitude, radiusKm: 15,
+        );
+        if (mounted) setState(() => _nearbyPickups = nearby);
+      }
+    } catch (e) {
+      debugPrint('Load nearby error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingNearby = false);
+    }
+  }
+
+  Future<void> _claimPickup(Map<String, dynamic> pickup) async {
+    try {
+      await _supabaseService.claimPickup(pickup['id'].toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pickup claimed! 🎉 It\'s now in your task list.'), backgroundColor: AppColors.success),
+        );
+        _loadNearbyPickups(); // Refresh
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   @override
@@ -50,16 +90,28 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         automaticallyImplyLeading: false, 
         actions: [
           _buildOnlineToggle(userProvider),
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+          Container(
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_none_rounded, size: 22),
+              onPressed: () => Navigator.pushNamed(context, '/notifications'),
+            ),
           ),
           const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async { setState(() {}); },
+          color: AppColors.primary,
+          onRefresh: () async { 
+            setState(() {}); 
+            if (_showNearbyPickups) _loadNearbyPickups();
+          },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24.0),
@@ -67,11 +119,18 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStatusBanner(userProvider),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildStatsSection(),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                // Find Nearby Button
+                if (userProvider.isOnline) _buildFindNearbyButton(),
+                if (_showNearbyPickups && userProvider.isOnline) ...[
+                  const SizedBox(height: 20),
+                  _buildNearbyPickupsSection(),
+                ],
+                const SizedBox(height: 24),
                 const Text('Assigned Tasks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 _buildPickupQueue(userProvider),
                 const SizedBox(height: 80),
               ],
@@ -82,7 +141,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
       floatingActionButton: userProvider.isOnline ? FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
         backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+        icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
         label: const Text('Verify Pickup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ) : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -98,21 +157,41 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
   }
 
   Widget _buildOnlineToggle(UserProvider provider) {
-    return Row(
-      children: [
-        Text(provider.isOnline ? 'ONLINE' : 'OFFLINE', 
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: provider.isOnline ? AppColors.success : Colors.grey)),
-        Switch(
-          value: provider.isOnline,
-          onChanged: (_) async {
-            await provider.toggleOnlineStatus();
-            if (provider.isOnline) {
-              _supabaseService.updateLocationFromGps(); // Initial update when going online
-            }
-          },
-          activeColor: AppColors.success,
-        ),
-      ],
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: provider.isOnline ? AppColors.success.withOpacity(0.08) : Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8, height: 8,
+            decoration: BoxDecoration(
+              color: provider.isOnline ? AppColors.success : Colors.grey,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            provider.isOnline ? 'ONLINE' : 'OFFLINE', 
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: provider.isOnline ? AppColors.success : Colors.grey, letterSpacing: 0.5),
+          ),
+          Switch(
+            value: provider.isOnline,
+            onChanged: (_) async {
+              await provider.toggleOnlineStatus();
+              if (provider.isOnline) {
+                _supabaseService.updateLocationFromGps();
+              }
+            },
+            activeColor: AppColors.success,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
     );
   }
 
@@ -120,24 +199,56 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
     if (provider.isOnline) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.success.withOpacity(0.2))),
-        child: const Row(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.success.withOpacity(0.08), AppColors.success.withOpacity(0.03)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.success.withOpacity(0.15)),
+        ),
+        child: Row(
           children: [
-            Icon(Icons.check_circle, color: AppColors.success),
-            SizedBox(width: 12),
-            Expanded(child: Text('Active & Online. New assignments will appear here.', style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600))),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.success.withOpacity(0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Active & Online', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                Text('New assignments will appear below.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              ],
+            )),
           ],
         ),
       );
     }
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.orange.withOpacity(0.2))),
-      child: const Row(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.amber.withOpacity(0.08), AppColors.amber.withOpacity(0.03)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.amber.withOpacity(0.15)),
+      ),
+      child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange),
-          SizedBox(width: 12),
-          Expanded(child: Text('Offline. Go online to receive pickups.', style: TextStyle(color: AppColors.textPrimary, fontSize: 13))),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.amber.withOpacity(0.15), shape: BoxShape.circle),
+            child: const Icon(Icons.cloud_off_rounded, color: AppColors.amber, size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Offline', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+              Text('Go online to receive pickups.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            ],
+          )),
         ],
       ),
     );
@@ -150,30 +261,267 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         final stats = snapshot.data ?? {'count': 0, 'earnings': 0};
         return Row(
           children: [
-            Expanded(child: _buildStatCard('Today', '${stats['count']}', Icons.local_shipping, AppColors.primary)),
-            const SizedBox(width: 16),
-            Expanded(child: _buildStatCard('KES', '${stats['earnings']}', Icons.account_balance_wallet, AppColors.warning)),
+            Expanded(child: _buildStatCard('Collections', '${stats['count']}', Icons.local_shipping_rounded, AppColors.primary, AppColors.primaryGradient)),
+            const SizedBox(width: 14),
+            Expanded(child: _buildStatCard('Earnings (KES)', '${stats['earnings']}', Icons.account_balance_wallet_rounded, AppColors.amber, AppColors.amberGradient)),
           ],
         );
       },
     );
   }
 
-  Widget _buildStatCard(String title, String val, IconData icon, Color color) {
+  Widget _buildStatCard(String title, String val, IconData icon, Color color, List<Color> gradient) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 12),
-          Text(val, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.15), color.withOpacity(0.05)]),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 14),
+          Text(val, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
           Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
   }
+
+  // ── Find Nearby Pickups ──
+
+  Widget _buildFindNearbyButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _showNearbyPickups = !_showNearbyPickups);
+        if (_showNearbyPickups) _loadNearbyPickups();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _showNearbyPickups 
+              ? [AppColors.teal.withOpacity(0.12), AppColors.teal.withOpacity(0.06)]
+              : [AppColors.teal.withOpacity(0.08), AppColors.teal.withOpacity(0.03)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.teal.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.teal.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _showNearbyPickups ? Icons.explore_rounded : Icons.explore_outlined, 
+                color: AppColors.teal, size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Find Nearby Pickups', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary)),
+                Text(
+                  _showNearbyPickups ? 'Tap to hide • Showing within 15km' : 'Discover unassigned pickups near you',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            )),
+            Icon(
+              _showNearbyPickups ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, 
+              color: AppColors.teal,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNearbyPickupsSection() {
+    if (_isLoadingNearby) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(24),
+        child: CircularProgressIndicator(color: AppColors.teal),
+      ));
+    }
+
+    if (_nearbyPickups.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.location_searching_rounded, size: 40, color: AppColors.teal.withOpacity(0.3)),
+            const SizedBox(height: 8),
+            const Text('No nearby pickups found', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            const Text('Check back soon or increase your search radius', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Nearby (${_nearbyPickups.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            GestureDetector(
+              onTap: _loadNearbyPickups,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.teal.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 14, color: AppColors.teal),
+                    const SizedBox(width: 4),
+                    const Text('Refresh', style: TextStyle(fontSize: 11, color: AppColors.teal, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._nearbyPickups.map((p) => _buildNearbyPickupCard(p)),
+      ],
+    );
+  }
+
+  Widget _buildNearbyPickupCard(Map<String, dynamic> pickup) {
+    final wasteType = pickup['waste_type'] ?? 'Waste';
+    final visual = ActivityItem.wasteVisual(wasteType);
+    final Color typeColor = visual['color'];
+    final IconData typeIcon = visual['icon'];
+    final distance = (pickup['distance_km'] as double).toStringAsFixed(1);
+    final isMine = pickup['is_mine'] == true;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isMine ? AppColors.primary.withOpacity(0.3) : AppColors.teal.withOpacity(0.12)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: typeColor.withOpacity(0.12), shape: BoxShape.circle),
+            child: Icon(typeIcon, color: typeColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(wasteType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.teal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('${distance}km', style: const TextStyle(fontSize: 10, color: AppColors.teal, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                pickup['address'] ?? 'Address not provided',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${pickup['profiles']?['full_name'] ?? 'Resident'} • ${(pickup['date'] ?? '').toString().split(' ').first}',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ],
+          )),
+          const SizedBox(width: 8),
+          if (isMine)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text('Yours', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+            )
+          else
+            GestureDetector(
+              onTap: () => _showClaimDialog(pickup),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: AppColors.tealGradient),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: AppColors.teal.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
+                ),
+                child: const Text('Claim', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showClaimDialog(Map<String, dynamic> pickup) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Icon(Icons.assignment_turned_in_rounded, color: AppColors.teal, size: 24),
+          const SizedBox(width: 8),
+          const Text('Claim Pickup?'),
+        ]),
+        content: Text('Claim this ${pickup['waste_type']} pickup at ${pickup['address'] ?? 'the given location'}? It will be added to your assigned tasks.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _claimPickup(pickup);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
+            child: const Text('Claim It', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Assigned Task Queue ──
 
   Widget _buildPickupQueue(UserProvider provider) {
     if (!provider.isOnline) {
@@ -182,9 +530,16 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Column(
             children: [
-              Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey.shade200),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.cloud_off_rounded, size: 40, color: Colors.grey.shade300),
+              ),
               const SizedBox(height: 12),
-              const Text('Queue hidden while offline', style: TextStyle(color: AppColors.textSecondary)),
+              const Text('Queue hidden while offline', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -197,14 +552,29 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         
         final pickups = snapshot.data ?? [];
-        if (pickups.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No assigned pickups found.')));
+        if (pickups.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(Icons.inbox_rounded, size: 40, color: AppColors.primary.withOpacity(0.3)),
+                  const SizedBox(height: 8),
+                  const Text('No assigned pickups', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                  const Text('Use "Find Nearby" to discover pickups', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                ],
+              ),
+            ),
+          );
+        }
 
         return Column(
           children: pickups.asMap().entries.map((entry) {
             final p = entry.value;
             return _buildPickupItem(
               p['address'] ?? 'Address',
-              '${p['waste_type']} • ${p['profiles']?['full_name'] ?? 'Resident'}',
+              p['waste_type'] ?? 'Waste',
+              '${p['profiles']?['full_name'] ?? 'Resident'}',
               p['date'] ?? 'Scheduled',
               entry.key == 0,
             );
@@ -214,26 +584,51 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> {
     );
   }
 
-  Widget _buildPickupItem(String location, String details, String time, bool isNext) {
+  Widget _buildPickupItem(String location, String wasteType, String resident, String time, bool isNext) {
+    final visual = ActivityItem.wasteVisual(wasteType);
+    final Color typeColor = visual['color'];
+    final IconData typeIcon = visual['icon'];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isNext ? AppColors.primary.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isNext ? AppColors.primary.withOpacity(0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: isNext ? Border.all(color: AppColors.primary, width: 1.5) : null,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Row(
         children: [
-          Icon(Icons.location_on, color: isNext ? AppColors.primary : Colors.grey.shade300, size: 20),
-          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: typeColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(typeIcon, color: typeColor, size: 20),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(location, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text(details, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text('$wasteType • $resident', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             ]),
           ),
-          Text(time.split(' ').first, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isNext ? AppColors.primary : AppColors.textSecondary)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(time.split(' ').first, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isNext ? AppColors.primary : AppColors.textSecondary)),
+              if (isNext) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                  child: const Text('NEXT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: 0.5)),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
+          color: AppColors.primary,
           onRefresh: () async { setState(() {}); },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -49,11 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   co2Saved: userProvider.totalWasteDiverted * 0.8,
                   onTap: () => Navigator.pushNamed(context, '/impact-stats'),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 _buildQuickActions(context, l10n),
-                const SizedBox(height: 32),
-                _buildActivePickup(context, userProvider),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
+                _buildScheduledPickups(context),
+                const SizedBox(height: 28),
                 _buildRecentActivitySection(l10n),
                 const SizedBox(height: 80),
               ],
@@ -77,38 +78,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Image.asset('assets/images/logo.png', height: 16),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.translate('welcome'),
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            Text(
-              userProvider.userName,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Image.asset('assets/images/logo.png', height: 14),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.translate('welcome'),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                userProvider.userName,
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary, letterSpacing: -0.5),
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.textPrimary),
-              onPressed: () => Navigator.pushNamed(context, '/notifications'),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
+                onPressed: () => Navigator.pushNamed(context, '/notifications'),
+              ),
             ),
-            const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.primary,
-              child: Text(
-                userProvider.userName.isNotEmpty ? userProvider.userName[0].toUpperCase() : 'G', 
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+            const SizedBox(width: 10),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+              ),
+              child: CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.transparent,
+                child: Text(
+                  userProvider.userName.isNotEmpty ? userProvider.userName[0].toUpperCase() : 'G', 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)
+                ),
               ),
             ),
           ],
@@ -122,14 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Row(
           children: [
             _buildActionCard(context, l10n.translate('schedule_pickup'), Icons.calendar_today_rounded, AppColors.primary, '/schedule-pickup'),
-            const SizedBox(width: 12),
-            _buildActionCard(context, 'Impact', Icons.trending_up_rounded, AppColors.secondary, '/impact-stats'),
-            const SizedBox(width: 12),
-            _buildActionCard(context, 'Leaderboard', Icons.leaderboard_rounded, AppColors.warning, '/leaderboard'),
+            const SizedBox(width: 10),
+            _buildActionCard(context, 'Impact', Icons.eco_rounded, AppColors.teal, '/impact-stats'),
+            const SizedBox(width: 10),
+            _buildActionCard(context, 'Leaderboard', Icons.leaderboard_rounded, AppColors.amber, '/leaderboard'),
+            const SizedBox(width: 10),
+            _buildActionCard(context, 'Waste Guide', Icons.menu_book_rounded, AppColors.indigo, '/waste-guide'),
           ],
         ),
       ],
@@ -141,13 +168,30 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () => Navigator.pushNamed(context, route),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withOpacity(0.12)),
+          ),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 28),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
               const SizedBox(height: 8),
-              Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+              Text(
+                title, 
+                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 10),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -155,29 +199,151 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActivePickup(BuildContext context, UserProvider user) {
+  // ── Scheduled Pickups with Cancel ──
+
+  Widget _buildScheduledPickups(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: _supabaseService.getPickups(),
       builder: (context, snapshot) {
-        final active = (snapshot.data ?? []).cast<Map<String, dynamic>?>().firstWhere((p) => p?['status'] == 'scheduled', orElse: () => null);
-        if (active == null) return const SizedBox.shrink();
+        final scheduled = (snapshot.data ?? [])
+            .cast<Map<String, dynamic>?>()
+            .where((p) => p?['status'] == 'scheduled')
+            .toList();
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.primary.withOpacity(0.2))),
-          child: Row(
-            children: [
-              const Icon(Icons.local_shipping, color: AppColors.primary),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(active['waste_type'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(active['date'], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              ])),
-              const Text('Scheduled', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
-          ),
+        if (scheduled.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Scheduled Pickups', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('${scheduled.length} active', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...scheduled.map((p) => _buildScheduledItem(p!)),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildScheduledItem(Map<String, dynamic> pickup) {
+    final wasteType = pickup['waste_type'] ?? 'Waste';
+    final visual = ActivityItem.wasteVisual(wasteType);
+    final Color typeColor = visual['color'];
+    final IconData typeIcon = visual['icon'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: typeColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(typeIcon, color: typeColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(wasteType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 2),
+            Text(pickup['date'] ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            if (pickup['address'] != null)
+              Text(pickup['address'], style: TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Scheduled', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => _showCancelDialog(pickup),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.close_rounded, size: 13, color: AppColors.error),
+                      const SizedBox(width: 3),
+                      Text('Cancel', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelDialog(Map<String, dynamic> pickup) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+          const SizedBox(width: 8),
+          const Text('Cancel Pickup?'),
+        ]),
+        content: Text('Are you sure you want to cancel the ${pickup['waste_type']} pickup scheduled for ${pickup['date']}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep It', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _supabaseService.cancelPickup(pickup['id'].toString());
+                if (mounted) {
+                  setState(() {}); // Refresh the list
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Pickup cancelled successfully'),
+                      backgroundColor: AppColors.error,
+                      action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: () {}),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Cancel Pickup', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -186,13 +352,41 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Recent Activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         FutureBuilder<List<dynamic>>(
           future: _supabaseService.getPickups(),
           builder: (context, snapshot) {
             final completed = (snapshot.data ?? []).where((p) => p['status'] == 'completed').toList();
-            if (completed.isEmpty) return const Text('No recent pickups found.', style: TextStyle(color: AppColors.textSecondary));
-            return Column(children: completed.map((p) => ActivityItem(title: '${p['waste_type']} Collected', timestamp: p['date'], points: p['points_awarded'] ?? 50, icon: Icons.check_circle, iconColor: AppColors.success, backgroundColor: Colors.white)).toList());
+            if (completed.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.recycling_rounded, size: 40, color: AppColors.primary.withOpacity(0.3)),
+                    const SizedBox(height: 8),
+                    const Text('No completed pickups yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    const Text('Schedule your first pickup to get started!', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: completed.map((p) {
+                final visual = ActivityItem.wasteVisual(p['waste_type'] ?? '');
+                return ActivityItem(
+                  title: '${p['waste_type']} Collected',
+                  timestamp: p['date'] ?? '',
+                  points: p['points_awarded'] ?? 50,
+                  icon: visual['icon'],
+                  iconColor: visual['color'],
+                  backgroundColor: Colors.white,
+                );
+              }).toList(),
+            );
           },
         ),
       ],

@@ -14,7 +14,7 @@ class SchedulePickupScreen extends StatefulWidget {
   State<SchedulePickupScreen> createState() => _SchedulePickupScreenState();
 }
 
-class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
+class _SchedulePickupScreenState extends State<SchedulePickupScreen> with TickerProviderStateMixin {
   int _selectedCategoryIndex = 0;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -27,31 +27,52 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   final SupabaseService _supabaseService = SupabaseService();
 
   Position? _currentPosition;
+  List<Map<String, dynamic>> _savedAddresses = [];
+  late AnimationController _pulseController;
 
   final List<Map<String, dynamic>> _categories = [
-    {'name': 'Organic', 'icon': Icons.compost, 'color': AppColors.organic},
-    {'name': 'Plastic', 'icon': Icons.local_drink, 'color': AppColors.plastic},
-    {'name': 'Paper', 'icon': Icons.newspaper, 'color': AppColors.paper},
-    {'name': 'Metal', 'icon': Icons.build, 'color': AppColors.metal},
-    {'name': 'E-waste', 'icon': Icons.phonelink_erase, 'color': AppColors.ewaste},
-    {'name': 'Hazardous', 'icon': Icons.warning_amber, 'color': AppColors.hazardous},
+    {'name': 'Organic', 'icon': Icons.compost_rounded, 'color': AppColors.organic},
+    {'name': 'Plastic', 'icon': Icons.local_drink_rounded, 'color': AppColors.plastic},
+    {'name': 'Paper', 'icon': Icons.newspaper_rounded, 'color': AppColors.paper},
+    {'name': 'Metal', 'icon': Icons.settings_rounded, 'color': AppColors.metal},
+    {'name': 'E-waste', 'icon': Icons.devices_rounded, 'color': AppColors.ewaste},
+    {'name': 'Hazardous', 'icon': Icons.warning_amber_rounded, 'color': AppColors.hazardous},
   ];
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+    _loadSavedAddresses();
     _fetchLocation();
+  }
+
+  Future<void> _loadSavedAddresses() async {
+    final addresses = await _supabaseService.getUserAddresses();
+    if (mounted) setState(() => _savedAddresses = addresses);
+    // Auto-fill default address
+    final defaultAddr = await _supabaseService.getDefaultAddress();
+    if (defaultAddr != null && _addressController.text.isEmpty && mounted) {
+      _addressController.text = defaultAddr['address'] ?? '';
+    }
   }
 
   Future<void> _fetchLocation() async {
     final pos = await _supabaseService.getCurrentPosition();
     if (pos != null && mounted) {
-      setState(() {
-        _currentPosition = pos;
-        if (_addressController.text.isEmpty) {
-          _addressController.text = 'Current Device Location';
+      setState(() => _currentPosition = pos);
+      if (_addressController.text.isEmpty) {
+        // Reverse geocode to get human-readable address
+        final address = await _supabaseService.reverseGeocode(pos.latitude, pos.longitude);
+        if (address != null && mounted) {
+          _addressController.text = address;
+        } else if (mounted) {
+          _addressController.text = 'Lat: ${pos.latitude.toStringAsFixed(4)}, Lng: ${pos.longitude.toStringAsFixed(4)}';
         }
-      });
+      }
     }
   }
 
@@ -59,6 +80,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   void dispose() {
     _addressController.dispose();
     _addressFocusNode.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -77,7 +99,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Schedule Pickup'),
@@ -110,9 +132,17 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_person_rounded, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_person_rounded, size: 48, color: AppColors.amber),
+            ),
+            const SizedBox(height: 20),
             const Text('Access Restricted', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             const Text('Only household accounts can schedule pickups.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
@@ -127,37 +157,123 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLocationCard(),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         const Text('What are we collecting?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _buildCategoryGrid(),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         _buildDateTimeSection(context),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         _buildPhotoSection(),
       ],
     );
   }
 
   Widget _buildLocationCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.primary.withOpacity(0.1))),
-      child: Row(
-        children: [
-          Icon(Icons.location_on, color: _currentPosition != null ? AppColors.primary : Colors.grey),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _addressController,
-              focusNode: _addressFocusNode,
-              decoration: const InputDecoration.collapsed(hintText: 'Enter pickup address or use GPS'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Pickup Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
           ),
-          IconButton(onPressed: _fetchLocation, icon: const Icon(Icons.my_location, size: 20, color: AppColors.primary)),
-        ],
-      ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _currentPosition != null ? AppColors.primary.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.location_on_rounded, 
+                      color: _currentPosition != null ? AppColors.primary : Colors.grey,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _addressController,
+                      focusNode: _addressFocusNode,
+                      decoration: const InputDecoration.collapsed(hintText: 'Enter pickup address...'),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      _addressController.clear();
+                      _fetchLocation();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.teal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.my_location_rounded, size: 18, color: AppColors.teal),
+                    ),
+                  ),
+                ],
+              ),
+              // Saved address chips
+              if (_savedAddresses.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 34,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _savedAddresses.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final addr = _savedAddresses[index];
+                      final isDefault = addr['is_default'] == true;
+                      return GestureDetector(
+                        onTap: () {
+                          _addressController.text = addr['address'] ?? '';
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDefault ? AppColors.primary.withOpacity(0.1) : Colors.grey.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: isDefault ? Border.all(color: AppColors.primary.withOpacity(0.3)) : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                addr['label'] == 'Home' ? Icons.home_rounded : addr['label'] == 'Office' ? Icons.work_rounded : Icons.place_rounded,
+                                size: 14,
+                                color: isDefault ? AppColors.primary : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                addr['label'] ?? 'Address',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDefault ? AppColors.primary : AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -174,16 +290,41 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   Widget _buildCategoryItem(int index) {
     final cat = _categories[index];
     final isSelected = _selectedCategoryIndex == index;
+    final Color catColor = cat['color'];
+
     return GestureDetector(
       onTap: () => setState(() => _selectedCategoryIndex = index),
-      child: Container(
-        decoration: BoxDecoration(color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade200, width: 2)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected ? catColor.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? catColor : Colors.grey.shade200, 
+            width: isSelected ? 2.5 : 1.5,
+          ),
+          boxShadow: isSelected ? [BoxShadow(color: catColor.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4))] : null,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(cat['icon'], color: isSelected ? AppColors.primary : Colors.grey),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: catColor.withOpacity(isSelected ? 0.2 : 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(cat['icon'], color: catColor, size: 24),
+            ),
             const SizedBox(height: 8),
-            Text(cat['name'], style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            Text(
+              cat['name'], 
+              style: TextStyle(
+                fontSize: 12, 
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? catColor : AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
       ),
@@ -193,12 +334,12 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   Widget _buildDateTimeSection(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _buildPickerCard('Date', _selectedDate == null ? 'Pick Date' : '${_selectedDate!.day}/${_selectedDate!.month}', Icons.calendar_today, () async {
+        Expanded(child: _buildPickerCard('Date', _selectedDate == null ? 'Pick Date' : '${_selectedDate!.day}/${_selectedDate!.month}', Icons.calendar_today_rounded, AppColors.indigo, () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 1)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
           if (picked != null) setState(() => _selectedDate = picked);
         })),
-        const SizedBox(width: 16),
-        Expanded(child: _buildPickerCard('Time', _selectedTime == null ? 'Pick Time' : _selectedTime!.format(context), Icons.access_time, () async {
+        const SizedBox(width: 14),
+        Expanded(child: _buildPickerCard('Time', _selectedTime == null ? 'Pick Time' : _selectedTime!.format(context), Icons.access_time_rounded, AppColors.teal, () async {
           final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
           if (picked != null) setState(() => _selectedTime = picked);
         })),
@@ -206,7 +347,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     );
   }
 
-  Widget _buildPickerCard(String title, String val, IconData icon, VoidCallback onTap) {
+  Widget _buildPickerCard(String title, String val, IconData icon, Color color, VoidCallback onTap) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -215,9 +356,22 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [Icon(icon, size: 16, color: AppColors.primary), const SizedBox(width: 8), Text(val, style: const TextStyle(fontSize: 13))]),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.grey.shade200),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))],
+            ),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+            ]),
           ),
         ),
       ],
@@ -229,13 +383,30 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Waste Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         GestureDetector(
           onTap: _pickImage,
           child: Container(
-            height: 120, width: double.infinity,
-            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
-            child: _imageBytes != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.memory(_imageBytes!, fit: BoxFit.cover)) : const Icon(Icons.add_a_photo_outlined, color: AppColors.primary, size: 32),
+            height: 130, width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.grey.shade200, style: _imageBytes == null ? BorderStyle.solid : BorderStyle.none),
+            ),
+            child: _imageBytes != null 
+              ? ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.memory(_imageBytes!, fit: BoxFit.cover))
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), shape: BoxShape.circle),
+                      child: const Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 28),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Take a photo of your waste', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  ],
+                ),
           ),
         ),
       ],
@@ -243,14 +414,30 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   }
 
   Widget _buildConfirmButton(BuildContext context) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -3))],
+      ),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
           onPressed: _isLoading ? null : _handleSchedule,
-          child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Schedule Collection', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: _isLoading 
+            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Schedule Collection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
         ),
       ),
     );
@@ -269,7 +456,6 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
       
       final dateStr = '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime!.format(context)}';
       
-      // Use real GPS coordinates if available, otherwise fallback to reasonable default (Nairobi center)
       final lat = _currentPosition?.latitude ?? -1.2921;
       final lng = _currentPosition?.longitude ?? 36.8219;
 
@@ -282,7 +468,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
         photoUrl: photoUrl,
       );
 
-      await Future.delayed(const Duration(seconds: 4)); // UX delay for "Finding Driver"
+      await Future.delayed(const Duration(seconds: 3));
 
       if (!mounted) return;
       Navigator.pushNamed(context, '/home');
@@ -295,18 +481,52 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   }
 
   Widget _buildFindingDriverOverlay() {
-    return Container(
-      color: Colors.black.withOpacity(0.9),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 4),
-          const SizedBox(height: 32),
-          const Text('Finding nearest collector...', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Text('Wait while Global Coolers optimizes your route', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
-        ],
-      ),
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        final scale = 1.0 + (_pulseController.value * 0.15);
+        return Container(
+          color: Colors.black.withOpacity(0.92),
+          width: double.infinity,
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Transform.scale(
+                scale: scale,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_shipping_rounded, color: AppColors.accent, size: 40),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 36),
+              const Text('Finding nearest collector...', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Text('Optimizing your route for the fastest pickup', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: 160,
+                child: LinearProgressIndicator(
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  minHeight: 3,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,13 +1,19 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class SupabaseService {
   final _supabase = Supabase.instance.client;
 
-  /// Fetches the current user's position using device sensors
+  // ──────────────────────────────────────────────
+  //  GPS
+  // ──────────────────────────────────────────────
+
   Future<Position?> getCurrentPosition() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -26,7 +32,39 @@ class SupabaseService {
     return await Geolocator.getCurrentPosition();
   }
 
-  /// Fetches the user profile from the 'profiles' table
+  // ──────────────────────────────────────────────
+  //  REVERSE GEOCODE (free Nominatim / OSM)
+  // ──────────────────────────────────────────────
+
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng&addressdetails=1',
+      );
+      final response = await http.get(url, headers: {'User-Agent': 'GlobalCoolers/1.0'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final addr = data['address'] as Map<String, dynamic>?;
+        if (addr != null) {
+          final parts = <String>[];
+          if (addr['road'] != null) parts.add(addr['road']);
+          if (addr['suburb'] != null) parts.add(addr['suburb']);
+          if (addr['city'] != null) parts.add(addr['city']);
+          else if (addr['town'] != null) parts.add(addr['town']);
+          if (parts.isNotEmpty) return parts.join(', ');
+        }
+        return data['display_name'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Reverse geocode error: $e');
+    }
+    return null;
+  }
+
+  // ──────────────────────────────────────────────
+  //  PROFILES
+  // ──────────────────────────────────────────────
+
   Future<Map<String, dynamic>> getProfile() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
@@ -44,7 +82,10 @@ class SupabaseService {
     }
   }
 
-  /// Fetches rewards from the 'rewards' table
+  // ──────────────────────────────────────────────
+  //  REWARDS
+  // ──────────────────────────────────────────────
+
   Future<List<dynamic>> getRewards() async {
     try {
       final response = await _supabase.from('rewards').select();
@@ -55,7 +96,10 @@ class SupabaseService {
     }
   }
 
-  /// Fetches pickups for the current user
+  // ──────────────────────────────────────────────
+  //  PICKUPS
+  // ──────────────────────────────────────────────
+
   Future<List<dynamic>> getPickups() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
@@ -70,6 +114,18 @@ class SupabaseService {
     } catch (e) {
       debugPrint('SupabaseService Pickups Error: $e');
       return [];
+    }
+  }
+
+  /// Cancel a scheduled pickup
+  Future<void> cancelPickup(String pickupId) async {
+    try {
+      await _supabase.from('pickups').update({
+        'status': 'cancelled',
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Cancel Pickup Error: $e');
+      rethrow;
     }
   }
 
@@ -117,6 +173,10 @@ class SupabaseService {
     }
   }
 
+  // ──────────────────────────────────────────────
+  //  COLLECTOR: FIND & CLAIM NEARBY PICKUPS
+  // ──────────────────────────────────────────────
+
   /// Finds the nearest online collector via geographic proximity
   Future<String?> findNearestCollector(double lat, double lng) async {
     try {
@@ -157,7 +217,132 @@ class SupabaseService {
     }
   }
 
-  /// Redeems a reward and creates a fulfillment request
+  /// Get nearby scheduled pickups (unassigned OR assigned to me) for collectors
+  Future<List<Map<String, dynamic>>> getNearbyScheduledPickups(double lat, double lng, {double radiusKm = 15}) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      final response = await _supabase
+          .from('pickups')
+          .select('*, profiles(full_name)')
+          .eq('status', 'scheduled')
+          .order('created_at', ascending: false);
+      
+      final List<dynamic> pickups = response;
+      final distance = Distance();
+      final myPoint = LatLng(lat, lng);
+
+      final nearby = <Map<String, dynamic>>[];
+      for (var p in pickups) {
+        if (p['latitude'] == null || p['longitude'] == null) continue;
+        
+        final pickupPoint = LatLng(
+          (p['latitude'] as num).toDouble(),
+          (p['longitude'] as num).toDouble(),
+        );
+        final d = distance.as(LengthUnit.Kilometer, myPoint, pickupPoint);
+        
+        if (d <= radiusKm) {
+          final map = Map<String, dynamic>.from(p as Map);
+          map['distance_km'] = d;
+          // Show if this is unassigned OR assigned to me
+          final isUnassigned = map['collector_id'] == null || map['is_assigned'] != true;
+          final isAssignedToMe = map['collector_id'] == userId;
+          if (isUnassigned || isAssignedToMe) {
+            map['is_mine'] = isAssignedToMe;
+            nearby.add(map);
+          }
+        }
+      }
+
+      // Sort by distance
+      nearby.sort((a, b) => (a['distance_km'] as double).compareTo(b['distance_km'] as double));
+      return nearby;
+    } catch (e) {
+      debugPrint('Get Nearby Pickups Error: $e');
+      return [];
+    }
+  }
+
+  /// Collector claims an unassigned pickup
+  Future<void> claimPickup(String pickupId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    try {
+      await _supabase.from('pickups').update({
+        'collector_id': userId,
+        'is_assigned': true,
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Claim Pickup Error: $e');
+      rethrow;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  ADDRESS MANAGEMENT (SharedPreferences)
+  // ──────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getUserAddresses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('user_addresses');
+    if (raw == null) return [];
+    final List<dynamic> decoded = json.decode(raw);
+    return decoded.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> saveUserAddress(Map<String, dynamic> address) async {
+    final addresses = await getUserAddresses();
+    // Generate a simple ID
+    address['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+    // If first address, make it default
+    if (addresses.isEmpty) address['is_default'] = true;
+    addresses.add(address);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_addresses', json.encode(addresses));
+  }
+
+  Future<void> updateUserAddress(String addressId, Map<String, dynamic> updated) async {
+    final addresses = await getUserAddresses();
+    final idx = addresses.indexWhere((a) => a['id'] == addressId);
+    if (idx >= 0) {
+      updated['id'] = addressId;
+      updated['is_default'] = addresses[idx]['is_default'] ?? false;
+      addresses[idx] = updated;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_addresses', json.encode(addresses));
+    }
+  }
+
+  Future<void> deleteUserAddress(String addressId) async {
+    final addresses = await getUserAddresses();
+    addresses.removeWhere((a) => a['id'] == addressId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_addresses', json.encode(addresses));
+  }
+
+  Future<void> setDefaultAddress(String addressId) async {
+    final addresses = await getUserAddresses();
+    for (var a in addresses) {
+      a['is_default'] = (a['id'] == addressId);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_addresses', json.encode(addresses));
+  }
+
+  Future<Map<String, dynamic>?> getDefaultAddress() async {
+    final addresses = await getUserAddresses();
+    try {
+      return addresses.firstWhere((a) => a['is_default'] == true);
+    } catch (_) {
+      return addresses.isNotEmpty ? addresses.first : null;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  REDEMPTION
+  // ──────────────────────────────────────────────
+
   Future<void> redeemReward(String rewardId, int pointsCost, String mpesaNumber) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not logged in');
@@ -168,12 +353,10 @@ class SupabaseService {
 
       if (currentPoints < pointsCost) throw Exception('Insufficient points for this reward.');
 
-      // 1. Deduct points via Atomic Update (assuming points update correctly)
       await _supabase.from('profiles').update({
         'eco_points': currentPoints - pointsCost,
       }).eq('id', userId);
 
-      // 2. Create Redemption Request for Admin Fulfillment
       await _supabase.from('redemptions').insert({
         'user_id': userId,
         'reward_id': rewardId,
@@ -187,7 +370,10 @@ class SupabaseService {
     }
   }
 
-  /// Storage: Uploads a waste photo
+  // ──────────────────────────────────────────────
+  //  STORAGE
+  // ──────────────────────────────────────────────
+
   Future<String?> uploadWastePhoto(Uint8List fileBytes, String extension) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return null;
@@ -204,7 +390,10 @@ class SupabaseService {
     }
   }
 
-  /// Real-time: Completes a pickup and awards points
+  // ──────────────────────────────────────────────
+  //  PICKUP COMPLETION & TRACKING
+  // ──────────────────────────────────────────────
+
   Future<void> completePickup(String pickupId, String userId, int pointsToAward) async {
     try {
       await _supabase.from('pickups').update({'status': 'completed'}).eq('id', pickupId);
@@ -216,7 +405,6 @@ class SupabaseService {
     }
   }
 
-  /// Real-time: Updates Collector location from device GPS
   Future<void> updateLocationFromGps() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
@@ -234,21 +422,18 @@ class SupabaseService {
     }
   }
 
-  /// Stream Online status for realtime sync
   Future<void> updateOnlineStatus(bool isOnline) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
   }
 
-  /// New production methods for stabilization
-  
   Future<Map<String, dynamic>> verifyPickupByQr(String code) async {
     try {
       final response = await _supabase
           .from('pickups')
           .select('*, profiles(full_name)')
-          .eq('qr_code_id', code) // Assuming qr_code_id field exists
+          .eq('qr_code_id', code)
           .single();
       return response;
     } catch (e) {

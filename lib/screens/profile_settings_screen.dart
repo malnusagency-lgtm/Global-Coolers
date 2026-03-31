@@ -26,10 +26,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final localeProvider = context.watch<LocaleProvider>();
     final userProvider = context.watch<UserProvider>();
     final l10n = AppLocalizations.of(context);
-    final isEnglish = localeProvider.locale.languageCode == 'en';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -47,26 +45,37 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: AppColors.primaryGradient),
                             shape: BoxShape.circle,
                           ),
-                          child: const CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.grey,
-                            child: Icon(Icons.person, size: 50, color: Colors.white),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: CircleAvatar(
+                              radius: 48,
+                              backgroundColor: AppColors.primary.withOpacity(0.08),
+                              child: Text(
+                                userProvider.userName.isNotEmpty ? userProvider.userName[0].toUpperCase() : 'G',
+                                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                            ),
                           ),
                         ),
                         Positioned(
-                          bottom: 0,
-                          right: 0,
+                          bottom: 2,
+                          right: 2,
                           child: Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: AppColors.primaryGradient),
                               shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.5),
                             ),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
                           ),
                         ),
                       ],
@@ -80,11 +89,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    Text(
-                      userProvider.phone.isNotEmpty ? userProvider.phone : userProvider.email,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        userProvider.phone.isNotEmpty ? userProvider.phone : userProvider.email,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -92,8 +110,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
               
               const SizedBox(height: 32),
-              
-              const SizedBox(height: 12),
               
               const Text(
                 'Account Settings',
@@ -104,18 +120,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               
-              _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline, () {
+              _buildSettingItem(l10n.translate('edit_profile'), Icons.person_outline_rounded, AppColors.indigo, () {
                 _showEditProfileDialog(context, userProvider);
               }),
-              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, () {
+              _buildSettingItem(l10n.translate('my_address'), Icons.location_on_outlined, AppColors.teal, () {
                 Navigator.pushNamed(context, '/my-address');
               }),
-              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card, () {
+              _buildSettingItem(l10n.translate('payment_methods'), Icons.credit_card_rounded, AppColors.amber, () {
                 Navigator.pushNamed(context, '/payment-methods');
               }),
-              _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none, () {
+              _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none_rounded, AppColors.primary, () {
                 Navigator.pushNamed(context, '/notifications');
               }),
               
@@ -128,15 +144,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               
-              _buildSettingItem(l10n.translate('help_support'), Icons.help_outline, () {
+              _buildSettingItem(l10n.translate('help_support'), Icons.help_outline_rounded, AppColors.info, () {
                  Navigator.pushNamed(context, '/support');
               }),
-              _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline, () {
+              _buildSettingItem(l10n.translate('privacy_policy'), Icons.lock_outline_rounded, AppColors.purple, () {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Privacy Policy opening...')));
               }),
-              _buildSettingItem(l10n.translate('log_out'), Icons.logout, () async {
+              _buildSettingItem(l10n.translate('log_out'), Icons.logout_rounded, AppColors.error, () async {
                 await userProvider.signOut();
                 if (!mounted) return;
                 Navigator.pushReplacementNamed(context, '/'); 
@@ -154,31 +170,32 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _buildSettingItem(String title, IconData icon, VoidCallback onTap, {bool isDestructive = false}) {
+  Widget _buildSettingItem(String title, IconData icon, Color iconColor, VoidCallback onTap, {bool isDestructive = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.02),
-          //     blurRadius: 5,
-          //     offset: const Offset(0, 2),
-          //   ),
-          // ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: isDestructive ? AppColors.error : AppColors.textSecondary,
-              size: 20,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDestructive ? AppColors.error : iconColor).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isDestructive ? AppColors.error : iconColor,
+                size: 20,
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 title,
@@ -190,8 +207,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ),
             Icon(
-              Icons.chevron_right,
-              color: Colors.grey.shade400,
+              Icons.chevron_right_rounded,
+              color: Colors.grey.shade300,
+              size: 22,
             ),
           ],
         ),
@@ -206,25 +224,38 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Profile'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.edit_rounded, color: AppColors.indigo, size: 22),
+            const SizedBox(width: 8),
+            const Text('Edit Profile'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Full Name'),
+              decoration: InputDecoration(
+                labelText: 'Full Name',
+                prefixIcon: Icon(Icons.person_rounded, color: AppColors.indigo, size: 20),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: phoneController,
-              decoration: const InputDecoration(labelText: 'Phone Number (e.g. +254...)'),
+              decoration: InputDecoration(
+                labelText: 'Phone Number (e.g. +254...)',
+                prefixIcon: Icon(Icons.phone_rounded, color: AppColors.teal, size: 20),
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -236,9 +267,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
               if (success && ctx.mounted) {
                 Navigator.pop(ctx);
-                await provider.loadUserData(); // Refresh the provider with new DB info
+                await provider.loadUserData();
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully!')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile updated! ✅'), backgroundColor: AppColors.success),
+                  );
                 }
               } else if (ctx.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile.')));

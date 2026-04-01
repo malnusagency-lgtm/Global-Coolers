@@ -142,8 +142,8 @@ class _PickupConfirmationScreenState extends State<PickupConfirmationScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      qrCode,
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w600),
+                      _qrCode ?? 'N/A',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 20),
                     QrImageView(

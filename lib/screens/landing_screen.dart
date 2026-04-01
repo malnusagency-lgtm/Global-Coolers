@@ -22,13 +22,13 @@ class LandingScreen extends StatelessWidget {
               height: size.height * 0.6,
               width: double.infinity,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF2D4F2D),
-                    Color(0xFF1A2E1A),
-                  ],
+                image: DecorationImage(
+                  image: AssetImage('assets/images/landing_bg.jpeg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Colors.black54,
+                    BlendMode.darken,
+                  ),
                 ),
               ),
               child: Stack(
@@ -75,7 +75,7 @@ class LandingScreen extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Image.asset('assets/images/logo.png', height: 18),
+                              Image.asset('assets/images/app_logo.png', height: 18),
                               const SizedBox(width: 10),
                               const Text(
                                 'GLOBAL COOLERS',

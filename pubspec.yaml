@@ -41,3 +41,5 @@ flutter:
 
   assets:
     - assets/images/logo.png
+    - assets/images/app_logo.png
+    - assets/images/landing_bg.jpeg

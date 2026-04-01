@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Image.asset('assets/images/logo.png', height: 14),
+                    child: Image.asset('assets/images/app_logo.png', height: 14),
                   ),
                   const SizedBox(width: 8),
                   Text(

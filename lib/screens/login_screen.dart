@@ -137,12 +137,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Load user data
       _setStatus('Loading your data...');
-      await context.read<UserProvider>().loadUserData();
+      final userProvider = context.read<UserProvider>();
+      userProvider.resetDataLoaded(); // Force fresh role check logic
+      await userProvider.loadUserData();
+
+      // Wait for data to be fully loaded (including background fetch)
+      if (!userProvider.isDataLoaded) {
+        int retry = 0;
+        while (!userProvider.isDataLoaded && retry < 20) { // 2s max more
+          await Future.delayed(const Duration(milliseconds: 100));
+          retry++;
+        }
+      }
 
       if (!mounted) return;
       
       // Navigate based on role
-      final userProvider = context.read<UserProvider>();
       final route = userProvider.role == AppRole.collector 
           ? '/collector-dashboard' 
           : '/home';

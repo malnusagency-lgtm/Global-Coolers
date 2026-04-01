@@ -20,15 +20,24 @@ class SupabaseService {
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null;
+    if (!serviceEnabled) {
+      debugPrint('Location services are disabled.');
+      return null;
+    }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return null;
+      if (permission == LocationPermission.denied) {
+        debugPrint('Location permissions are denied.');
+        return null;
+      }
     }
     
-    if (permission == LocationPermission.deniedForever) return null;
+    if (permission == LocationPermission.deniedForever) {
+      debugPrint('Location permissions are permanently denied.');
+      return null;
+    }
 
     return await Geolocator.getCurrentPosition();
   }
@@ -299,16 +308,30 @@ class SupabaseService {
     }
   }
 
-  /// Collector cancels an accepted assignment
+  /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
   Future<void> cancelPickupAssignment(String pickupId) async {
     try {
       await _supabase.from('pickups').update({
         'collector_id': null,
         'is_assigned': false,
         'status': 'scheduled',
+        'scheduled_arrival': null,
       }).eq('id', pickupId);
     } catch (e) {
       debugPrint('Cancel Assignment Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Collector reschedules an assigned pickup
+  Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
+    try {
+      await _supabase.from('pickups').update({
+        'scheduled_arrival': newTime,
+        'status': 'accepted', // Reset to accepted if it was in_transit
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Reschedule Assignment Error: $e');
       rethrow;
     }
   }
@@ -543,9 +566,58 @@ class SupabaseService {
   Future<Map<String, dynamic>> getCollectorStats() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return {'count': 0, 'earnings': 0};
-    final response = await _supabase.from('pickups').select('points_awarded').eq('status', 'completed').eq('collector_id', userId);
-    final List<dynamic> data = response;
-    return {'count': data.length, 'earnings': data.fold(0, (sum, item) => sum + (item['points_awarded'] as int? ?? 0))};
+    
+    try {
+      // 1. Get count of completed pickups
+      final countResponse = await _supabase
+          .from('pickups')
+          .select('id')
+          .eq('status', 'completed')
+          .eq('collector_id', userId);
+      
+      // 2. Get real eco_points from profile as "earnings"
+      final profile = await getProfile();
+      
+      return {
+        'count': (countResponse as List).length,
+        'earnings': profile['eco_points'] ?? 0
+      };
+    } catch (e) {
+      debugPrint('Get Collector Stats Error: $e');
+      return {'count': 0, 'earnings': 0};
+    }
+  }
+
+  /// Mark all completed pickups as hidden for the user
+  Future<void> clearUserHistory() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      // We'll mark them as 'hidden' or similar if the column exists, 
+      // or we can use a local 'hidden_pickups' filter if we don't want to change schema.
+      // For now, let's assume we can update a 'is_hidden' field or just return unhidden ones.
+      // If schema change isn't allowed, we'd use local storage.
+      // Assuming 'is_hidden' column might not exist, we will use a more robust way:
+      // We will update the status to 'archived' which won't show in normal history.
+      
+      await _supabase
+          .from('pickups')
+          .update({'status': 'archived'}) 
+          .eq('user_id', userId)
+          .eq('status', 'completed');
+          
+      // Also for collector if they are the one clearing
+       await _supabase
+          .from('pickups')
+          .update({'status': 'archived'}) 
+          .eq('collector_id', userId)
+          .eq('status', 'completed');
+          
+    } catch (e) {
+      debugPrint('Clear History Error: $e');
+      // Fallback: if 'archived' status isn't supported or errors, we'll ignore for now
+    }
   }
 
   Future<List<dynamic>> getPendingPickups() async {

@@ -781,58 +781,39 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               children: [
                 Row(
                   children: [
-                    if (status == 'accepted') // Scheduled but not yet moving
+                    if (status == 'accepted' || status == 'in_transit')
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () async {
                             try {
-                              await _supabaseService.updatePickupStatus(p['id'].toString(), 'in_transit');
-                              if (mounted) setState(() {});
-                            } catch (e) {
-                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                            }
-                          },
-                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                          label: const Text('Start Trip', style: TextStyle(fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 0,
-                          ),
-                        ),
-                      )
-                    else 
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            try {
-                              final pickupLat = (p['latitude'] as num?)?.toDouble();
-                              final pickupLng = (p['longitude'] as num?)?.toDouble();
+                              if (status == 'accepted') {
+                                await _supabaseService.updatePickupStatus(p['id'].toString(), 'in_transit');
+                              } else {
+                                final pickupLat = (p['latitude'] as num?)?.toDouble();
+                                final pickupLng = (p['longitude'] as num?)?.toDouble();
 
-                              if (pickupLat != null && pickupLng != null) {
-                                final currentPos = await _supabaseService.getCurrentPosition();
-                                if (currentPos != null) {
-                                  final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
-                                  final targetLatLng = LatLng(pickupLat, pickupLng);
-                                  final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
+                                if (pickupLat != null && pickupLng != null) {
+                                  final currentPos = await _supabaseService.getCurrentPosition();
+                                  if (currentPos != null) {
+                                    final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
+                                    final targetLatLng = LatLng(pickupLat, pickupLng);
+                                    final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
 
-                                  if (distance > 150) {
-                                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are too far from the pickup location to arrive.'), backgroundColor: Colors.red));
-                                    return;
+                                    if (distance > 200) { // Increased to 200m for better UX
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are too far from the pickup location to arrive.'), backgroundColor: Colors.red));
+                                      return;
+                                    }
                                   }
                                 }
+                                await _supabaseService.markPickupArrived(p['id'].toString());
                               }
-                              
-                              await _supabaseService.markPickupArrived(p['id'].toString());
                               if (mounted) setState(() {});
                             } catch (e) {
                               if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                             }
                           },
-                          icon: const Icon(Icons.location_on_rounded, size: 16),
-                          label: const Text("I've Arrived", style: TextStyle(fontSize: 12)),
+                          icon: Icon(status == 'accepted' ? Icons.play_arrow_rounded : Icons.location_on_rounded, size: 16),
+                          label: Text(status == 'accepted' ? 'Start Trip' : "I've Arrived", style: const TextStyle(fontSize: 12)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: status == 'in_transit' ? AppColors.success : AppColors.primary,
                             foregroundColor: Colors.white,
@@ -843,7 +824,39 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                         ),
                       ),
                     
-                    const SizedBox(width: 10),
+                    if (status == 'accepted' || status == 'in_transit') 
+                      const SizedBox(width: 8),
+
+                    // Reschedule Button
+                    if (status == 'accepted' || status == 'in_transit')
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                            if (pickedTime != null) {
+                              final arrivalTime = pickedTime.format(context);
+                              try {
+                                await _supabaseService.reschedulePickupAssignment(p['id'].toString(), arrivalTime);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rescheduled for $arrivalTime'), backgroundColor: AppColors.success));
+                                  setState(() {});
+                                }
+                              } catch (e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month_rounded, size: 14, color: AppColors.amber),
+                          label: const Text('Reschedule', style: TextStyle(fontSize: 11, color: AppColors.amber)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            side: BorderSide(color: AppColors.amber.withOpacity(0.4)),
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(width: 8),
                     
                     Expanded(
                       child: OutlinedButton.icon(
@@ -851,11 +864,12 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Cancel Request?'),
-                              content: const Text('Are you sure you want to drop this pickup?'),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              title: const Text('Drop Task?'),
+                              content: const Text('This will return the pickup to the open pool for other collectors.'),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes', style: TextStyle(color: Colors.red))),
+                                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, Drop it', style: TextStyle(color: Colors.red))),
                               ],
                             ),
                           );

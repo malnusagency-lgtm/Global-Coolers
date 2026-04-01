@@ -26,7 +26,20 @@ class _SplashScreenState extends State<SplashScreen> {
     if (session != null) {
       try {
         final userProvider = context.read<UserProvider>();
-        await userProvider.loadUserData().timeout(const Duration(seconds: 5));
+        
+        // Wait for data to be fully loaded (including background fetch)
+        await userProvider.loadUserData().timeout(const Duration(seconds: 10));
+        
+        // Wait specifically for the flag if loadUserData returned early (e.g. from cache)
+        // but we want to be absolutely sure the role is correct.
+        if (!userProvider.isDataLoaded) {
+          int retry = 0;
+          while (!userProvider.isDataLoaded && retry < 20) { // 2s max more
+            await Future.delayed(const Duration(milliseconds: 100));
+            retry++;
+          }
+        }
+
         if (!mounted) return;
         final route = userProvider.isCollector ? '/collector-dashboard' : '/home';
         Navigator.pushReplacementNamed(context, route);
@@ -34,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
         if (mounted) Navigator.pushReplacementNamed(context, '/landing');
       }
     } else {
-      Navigator.pushReplacementNamed(context, '/landing');
+      if (mounted) Navigator.pushReplacementNamed(context, '/landing');
     }
   }
 

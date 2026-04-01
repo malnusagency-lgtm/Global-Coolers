@@ -20,6 +20,7 @@ class UserProvider extends ChangeNotifier {
   double? _longitude;
   
   bool _isLoading = true;
+  bool _isDataLoaded = false;
   String? _lastError;
 
   // Getters
@@ -35,6 +36,7 @@ class UserProvider extends ChangeNotifier {
   bool get isCollector => _role == AppRole.collector;
   String get fullName => _userName;
   bool get isLoading => _isLoading;
+  bool get isDataLoaded => _isDataLoaded;
   String? get lastError => _lastError;
 
   UserProvider() {
@@ -136,14 +138,15 @@ class UserProvider extends ChangeNotifier {
         _userName = 'User';
       }
       debugPrint('Failed to fetch latest user data: $e');
-    } finally {
-      if (_isLoading) {
-        _isLoading = false;
-        notifyListeners();
-      } else {
-        notifyListeners();
+      } finally {
+        _isDataLoaded = true;
+        if (_isLoading) {
+          _isLoading = false;
+          notifyListeners();
+        } else {
+          notifyListeners();
+        }
       }
-    }
   }
 
   Future<void> fetchProfile() async {
@@ -224,6 +227,12 @@ class UserProvider extends ChangeNotifier {
     _totalWasteDiverted = 0;
     _role = AppRole.resident;
     _lastError = null;
+    _isDataLoaded = false;
+    notifyListeners();
+  }
+
+  void resetDataLoaded() {
+    _isDataLoaded = false;
     notifyListeners();
   }
 }

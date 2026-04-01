@@ -16,19 +16,24 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   LatLng _collectorLocation = const LatLng(-1.2960, 36.8150);
   LatLng _userLocation = const LatLng(-1.2921, 36.8219);
   StreamSubscription? _locationSubscription;
+  StreamSubscription? _pickupSubscription;
   final SupabaseService _supabaseService = SupabaseService();
   String _eta = 'Calculating...';
   String _collectorName = 'Collector';
   String _collectorPhone = '';
   bool _isInit = false;
+  Map<String, dynamic>? _pickupArgs;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInit) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      _pickupArgs = args;
       final collectorId = args?['collectorId'] ?? 'DEMO_COLLECTOR_ID';
-      _startTracking(collectorId);
+      final pickupId = args?['pickupId'] as String?;
+      
+      _startTracking(collectorId, pickupId);
       _loadCollectorProfile(collectorId);
       _loadMyLocation();
       _isInit = true;
@@ -56,7 +61,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     }
   }
 
-  void _startTracking(String collectorId) {
+  void _startTracking(String collectorId, String? pickupId) {
     _locationSubscription = _supabaseService.streamLocation(collectorId).listen((data) {
       if (data.isNotEmpty) {
         final profile = data.first;
@@ -80,11 +85,33 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         }
       }
     });
+
+    if (pickupId != null) {
+      _pickupSubscription = _supabaseService.streamPickupStatus(pickupId).listen((status) {
+        if (!mounted) return;
+        if (status['status'] == 'arrived') {
+          _locationSubscription?.cancel();
+          _pickupSubscription?.cancel();
+          
+          Navigator.pushReplacementNamed(
+            context,
+            '/pickup-confirmation',
+            arguments: {
+              'qrCode': _pickupArgs?['qrCode'] ?? 'NO-CODE',
+              'wasteType': _pickupArgs?['wasteType'] ?? 'Waste',
+              'weightKg': _pickupArgs?['weightKg'] ?? 1.0,
+              'costKes': _pickupArgs?['costKes'] ?? 0,
+            },
+          );
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _pickupSubscription?.cancel();
     super.dispose();
   }
 

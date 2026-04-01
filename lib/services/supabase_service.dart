@@ -299,6 +299,32 @@ class SupabaseService {
     }
   }
 
+  /// Collector cancels an accepted assignment
+  Future<void> cancelPickupAssignment(String pickupId) async {
+    try {
+      await _supabase.from('pickups').update({
+        'collector_id': null,
+        'is_assigned': false,
+        'status': 'scheduled',
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Cancel Assignment Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Collector marks that they have arrived at the resident's location
+  Future<void> markPickupArrived(String pickupId) async {
+    try {
+      await _supabase.from('pickups').update({
+        'status': 'arrived',
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Mark Arrived Error: $e');
+      rethrow;
+    }
+  }
+
   // ──────────────────────────────────────────────
   //  ADDRESS MANAGEMENT (SharedPreferences)
   // ──────────────────────────────────────────────

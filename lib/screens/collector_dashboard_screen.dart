@@ -771,54 +771,89 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                   ),
                   tooltip: 'Navigate',
                 ),
-              const SizedBox(width: 8),
-              if (status == 'in_transit')
-
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('ON THE WAY', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                )
-              else if (arrival != null)
-                Text(arrival, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.teal)),
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: ElevatedButton.icon(
-                onPressed: () async {
-                  final lat = (p['latitude'] as num?)?.toDouble();
-                  final lng = (p['longitude'] as num?)?.toDouble();
-                  if (lat != null && lng != null) {
-                    await _supabaseService.launchMaps(lat, lng);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coordinates not found.')));
-                  }
-                },
-                icon: const Icon(Icons.directions_rounded, size: 16),
-                label: const Text('Get Directions', style: TextStyle(fontSize: 12)),
+          // Action Buttons based on status
+          if (status == 'assigned' || status == 'in_transit')
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Cancel Request?'),
+                              content: const Text('Are you sure you want to drop this pickup?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes', style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            try {
+                              await _supabaseService.cancelPickupAssignment(p['id'].toString());
+                              if (mounted) setState(() {});
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                        label: const Text('Cancel', style: TextStyle(fontSize: 12, color: Colors.red)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          side: BorderSide(color: Colors.red.withOpacity(0.4)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            await _supabaseService.markPickupArrived(p['id'].toString());
+                            if (mounted) setState(() {});
+                          } catch (e) {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        },
+                        icon: const Icon(Icons.location_on_rounded, size: 16),
+                        label: const Text("I've Arrived", style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else if (status == 'arrived')
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                label: const Text('Scan Resident QR', style: TextStyle(fontSize: 14)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.teal,
+                  backgroundColor: AppColors.success,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-              )),
-              const SizedBox(width: 10),
-              Expanded(child: OutlinedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
-                label: const Text('Verify QR', style: TextStyle(fontSize: 12)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  side: BorderSide(color: AppColors.primary.withOpacity(0.4)),
-                ),
-              )),
-            ],
-          ),
+              ),
+            ),
         ],
       ),
     );

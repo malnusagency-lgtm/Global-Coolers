@@ -691,7 +691,14 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
           Navigator.pushReplacementNamed(
             context,
             '/live-tracking',
-            arguments: {'collectorId': collectorId, 'pickupId': pickupId},
+            arguments: {
+              'collectorId': collectorId,
+              'pickupId': pickupId,
+              'qrCode': qrCodeId,
+              'wasteType': _categories[_selectedCategoryIndex]['name'],
+              'weightKg': _selectedWeight,
+              'costKes': _estimatedCost,
+            },
           );
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Collector found! Tracking live. 🚛'), backgroundColor: AppColors.success));
         } else {

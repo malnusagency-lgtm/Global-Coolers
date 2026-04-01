@@ -125,6 +125,32 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          // Charity Donation Banner
+          const Text('Make an Impact', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.green.shade100)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('🌳 Plant a Tree Campaign', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                const Text('Donate your points to local reforestation efforts.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Donation successful! You planted 1 tree. 🌿'), backgroundColor: AppColors.success));
+                  },
+                  icon: const Icon(Icons.favorite, size: 18),
+                  label: const Text('Donate 1,000 Pts'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

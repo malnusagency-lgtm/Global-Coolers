@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import '../providers/user_provider.dart';
 
@@ -22,19 +23,24 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
 
+    // Check if first launch
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+    if (!hasSeenOnboarding) {
+      if (mounted) Navigator.pushReplacementNamed(context, '/onboarding');
+      return;
+    }
+
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       try {
         final userProvider = context.read<UserProvider>();
         
-        // Wait for data to be fully loaded (including background fetch)
         await userProvider.loadUserData().timeout(const Duration(seconds: 10));
         
-        // Wait specifically for the flag if loadUserData returned early (e.g. from cache)
-        // but we want to be absolutely sure the role is correct.
         if (!userProvider.isDataLoaded) {
           int retry = 0;
-          while (!userProvider.isDataLoaded && retry < 20) { // 2s max more
+          while (!userProvider.isDataLoaded && retry < 20) {
             await Future.delayed(const Duration(milliseconds: 100));
             retry++;
           }

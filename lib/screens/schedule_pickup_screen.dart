@@ -21,6 +21,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
   bool _isLoading = false;
   bool _isFindingDriver = false;
   bool _isImmediate = true;
+  int _recurringIndex = 0; // 0=Once, 1=Weekly, 2=Bi-weekly, 3=Monthly
+  final List<String> _recurringOptions = ['Once', 'Weekly', 'Bi-weekly', 'Monthly'];
 
   // ── Weight & Cost ──
   double _selectedWeight = 1.0;
@@ -66,6 +68,48 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     setState(() {
       _estimatedCost = (_selectedWeight * _ratesPerKg[_selectedCategoryIndex]).round();
     });
+  }
+
+  Widget _buildRecurringSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Frequency', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recurringOptions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final isSelected = _recurringIndex == index;
+              return GestureDetector(
+                onTap: () => setState(() => _recurringIndex = index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade300),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _recurringOptions[index],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _loadSavedAddresses() async {
@@ -154,6 +198,8 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
         const SizedBox(height: 28),
         if (!_isImmediate) ...[
           _buildDateTimeSection(context),
+          const SizedBox(height: 24),
+          _buildRecurringSelector(),
           const SizedBox(height: 28),
         ],
         _buildPhotoSection(),

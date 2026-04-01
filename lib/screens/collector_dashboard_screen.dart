@@ -764,13 +764,32 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               ),
               const SizedBox(width: 8),
               if (p['latitude'] != null && p['longitude'] != null)
-                IconButton(
-                  icon: const Icon(Icons.directions_rounded, color: AppColors.primary, size: 24),
-                  onPressed: () => _supabaseService.launchMaps(
-                    (p['latitude'] as num).toDouble(),
-                    (p['longitude'] as num).toDouble(),
-                  ),
-                  tooltip: 'Navigate',
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal, size: 20),
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context, 
+                          '/chat', 
+                          arguments: {
+                            'pickupId': p['id'].toString(),
+                            'recipientName': p['profiles']?['full_name'] ?? 'Resident',
+                          }
+                        );
+                      },
+                      tooltip: 'Chat with Resident',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.directions_rounded, color: AppColors.primary, size: 24),
+                      onPressed: () => _supabaseService.launchMaps(
+                        (p['latitude'] as num).toDouble(),
+                        (p['longitude'] as num).toDouble(),
+                      ),
+                      tooltip: 'Navigate',
+                    ),
+                  ],
                 ),
             ],
           ),

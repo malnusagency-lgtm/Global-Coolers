@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -14,7 +15,9 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   int _selectedMetric = 0; // 0: CO2 Saved, 1: Eco Points
+  bool _isNeighborhood = false;
   late Future<List<dynamic>> _leaderboardFuture;
+  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   void initState() {
@@ -24,9 +27,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   void _fetchLeaderboard() {
     setState(() {
-      _leaderboardFuture = ApiService.getLeaderboard(
-        sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
-      );
+      if (_isNeighborhood) {
+        _leaderboardFuture = _supabaseService.getNeighborhoodLeaderboard(
+          sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
+        );
+      } else {
+        _leaderboardFuture = ApiService.getLeaderboard(
+          sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
+        );
+      }
     });
   }
 
@@ -65,7 +74,53 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             color: Colors.white,
             child: Column(
               children: [
-                // Toggle metric
+                // Scope Toggle (Global / Neighborhood)
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () { if (_isNeighborhood) { _isNeighborhood = false; _fetchLeaderboard(); } },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: !_isNeighborhood ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.public, size: 16, color: !_isNeighborhood ? AppColors.primary : AppColors.textSecondary),
+                              const SizedBox(width: 4),
+                              Text('Global', style: TextStyle(fontWeight: !_isNeighborhood ? FontWeight.bold : FontWeight.normal, color: !_isNeighborhood ? AppColors.primary : AppColors.textSecondary, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () { if (!_isNeighborhood) { _isNeighborhood = true; _fetchLeaderboard(); } },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _isNeighborhood ? AppColors.teal.withOpacity(0.1) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.location_on_rounded, size: 16, color: _isNeighborhood ? AppColors.teal : AppColors.textSecondary),
+                              const SizedBox(width: 4),
+                              Text('Neighborhood', style: TextStyle(fontWeight: _isNeighborhood ? FontWeight.bold : FontWeight.normal, color: _isNeighborhood ? AppColors.teal : AppColors.textSecondary, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Metric Toggle
                 Container(
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(30)),
                   child: Row(

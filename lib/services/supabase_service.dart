@@ -696,5 +696,295 @@ class SupabaseService {
         .eq('id', pickupId)
         .map((list) => list.first);
   }
+
+  // ──────────────────────────────────────────────
+  //  RATINGS & REVIEWS
+  // ──────────────────────────────────────────────
+
+  Future<void> submitRating({
+    required String pickupId,
+    required int rating,
+    String comment = '',
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    try {
+      // Get pickup to find the other party
+      final pickup = await _supabase.from('pickups').select().eq('id', pickupId).single();
+      final revieweeId = pickup['collector_id'] ?? pickup['user_id'];
+
+      await _supabase.from('reviews').insert({
+        'pickup_id': pickupId,
+        'reviewer_id': userId,
+        'reviewee_id': revieweeId,
+        'rating': rating,
+        'comment': comment,
+      });
+
+      // Also store rating on the pickup for quick access
+      await _supabase.from('pickups').update({'rating': rating}).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Submit Rating Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<double> getAverageRating(String userId) async {
+    try {
+      final reviews = await _supabase.from('reviews').select('rating').eq('reviewee_id', userId);
+      if ((reviews as List).isEmpty) return 0;
+      final total = reviews.fold<int>(0, (sum, r) => sum + (r['rating'] as int));
+      return total / reviews.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  COLLECTOR EARNINGS (DETAILED)
+  // ──────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getCollectorEarningsDetailed() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return {'completed': [], 'total_earnings': 0, 'total_points': 0};
+
+    try {
+      final completed = await _supabase
+          .from('pickups')
+          .select()
+          .eq('collector_id', userId)
+          .eq('status', 'completed')
+          .order('created_at', ascending: false);
+
+      int totalEarnings = 0;
+      int totalPoints = 0;
+      for (var p in completed) {
+        totalEarnings += ((p['cost_kes'] ?? 0) as num).toInt();
+        totalPoints += ((p['points_awarded'] ?? 0) as num).toInt();
+      }
+
+      return {
+        'completed': completed,
+        'total_earnings': totalEarnings,
+        'total_points': totalPoints,
+      };
+    } catch (e) {
+      debugPrint('Collector Earnings Error: $e');
+      return {'completed': [], 'total_earnings': 0, 'total_points': 0};
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  CHALLENGES (JOIN / TRACK)
+  // ──────────────────────────────────────────────
+
+  Future<void> joinChallenge(String challengeId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    try {
+      await _supabase.from('challenge_participants').insert({
+        'user_id': userId,
+        'challenge_id': challengeId,
+        'joined_at': DateTime.now().toIso8601String(),
+        'progress': 0,
+      });
+    } catch (e) {
+      debugPrint('Join Challenge Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getUserChallenges() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    try {
+      final response = await _supabase
+          .from('challenge_participants')
+          .select('*, challenges(*)')
+          .eq('user_id', userId);
+      return response as List<dynamic>;
+    } catch (e) {
+      debugPrint('Get User Challenges Error: $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> getJoinedChallengeIds() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    try {
+      final response = await _supabase
+          .from('challenge_participants')
+          .select('challenge_id')
+          .eq('user_id', userId);
+      return (response as List).map<String>((r) => r['challenge_id'].toString()).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  WASTE BREAKDOWN (REAL DATA)
+  // ──────────────────────────────────────────────
+
+  Future<Map<String, double>> getWasteBreakdown() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return {};
+
+    try {
+      final pickups = await _supabase
+          .from('pickups')
+          .select('waste_type, weight_kg')
+          .eq('user_id', userId)
+          .eq('status', 'completed');
+
+      final breakdown = <String, double>{};
+      for (var p in pickups) {
+        final type = p['waste_type'] ?? 'Other';
+        final weight = ((p['weight_kg'] ?? 1.0) as num).toDouble();
+        breakdown[type] = (breakdown[type] ?? 0) + weight;
+      }
+      return breakdown;
+    } catch (e) {
+      debugPrint('Waste Breakdown Error: $e');
+      return {};
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  REFERRAL SYSTEM
+  // ──────────────────────────────────────────────
+
+  Future<String> getReferralCode() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return '';
+
+    try {
+      final profile = await getProfile();
+      if (profile['referral_code'] != null) return profile['referral_code'];
+
+      // Generate referral code
+      final code = 'GC-${userId.substring(0, 6).toUpperCase()}';
+      await _supabase.from('profiles').update({'referral_code': code}).eq('id', userId);
+      return code;
+    } catch (e) {
+      return 'GC-${userId.substring(0, 6).toUpperCase()}';
+    }
+  }
+
+  Future<int> getReferralCount() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return 0;
+
+    try {
+      final code = await getReferralCode();
+      final response = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('referred_by', code);
+      return (response as List).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  PHOTO VERIFICATION (Collector Side)
+  // ──────────────────────────────────────────────
+
+  Future<void> submitVerificationPhoto(String pickupId, String photoUrl) async {
+    try {
+      await _supabase.from('pickups').update({
+        'verification_photo_url': photoUrl,
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Verification Photo Error: $e');
+      rethrow;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  STREAK TRACKING
+  // ──────────────────────────────────────────────
+
+  Future<int> getUserStreak() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return 0;
+
+    try {
+      final pickups = await _supabase
+          .from('pickups')
+          .select('created_at')
+          .eq('user_id', userId)
+          .eq('status', 'completed')
+          .order('created_at', ascending: false);
+
+      if ((pickups as List).isEmpty) return 0;
+
+      // Count consecutive weeks with a pickup
+      int streak = 0;
+      DateTime checkDate = DateTime.now();
+
+      for (int week = 0; week < 52; week++) {
+        final weekStart = checkDate.subtract(Duration(days: checkDate.weekday + (week * 7)));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+
+        final hasPickup = pickups.any((p) {
+          try {
+            final d = DateTime.parse(p['created_at']);
+            return d.isAfter(weekStart) && d.isBefore(weekEnd);
+          } catch (_) {
+            return false;
+          }
+        });
+
+        if (hasPickup) {
+          streak++;
+        } else if (week > 0) {
+          break; // Streak broken
+        }
+      }
+
+      return streak;
+    } catch (e) {
+      debugPrint('Get Streak Error: $e');
+      return 0;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  NEIGHBORHOOD LEADERBOARD
+  // ──────────────────────────────────────────────
+
+  Future<List<dynamic>> getNeighborhoodLeaderboard({String sortBy = 'eco_points'}) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    try {
+      final profile = await getProfile();
+      final myAddress = profile['address'] as String?;
+      if (myAddress == null) return [];
+
+      // Extract area keyword from address
+      final parts = myAddress.split(',');
+      final area = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+
+      final response = await _supabase
+          .from('profiles')
+          .select('id, full_name, eco_points, co2_saved, address')
+          .ilike('address', '%$area%')
+          .order(sortBy, ascending: false)
+          .limit(20);
+
+      return response as List<dynamic>;
+    } catch (e) {
+      debugPrint('Neighborhood Leaderboard Error: $e');
+      return [];
+    }
+  }
 }
 

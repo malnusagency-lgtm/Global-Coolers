@@ -3,6 +3,8 @@ import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../services/supabase_service.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class ImpactStatsScreen extends StatefulWidget {
   const ImpactStatsScreen({super.key});
@@ -12,7 +14,8 @@ class ImpactStatsScreen extends StatefulWidget {
 }
 
 class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
-  int _selectedPeriod = 1; // 0=Week, 1=Month, 2=Year
+  int _selectedPeriod = 1;
+  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   Widget build(BuildContext context) {
@@ -191,14 +194,8 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
 
             const SizedBox(height: 24),
 
-            // Waste Breakdown
-            Row(
-              children: [
-                Expanded(child: _buildWasteBreakdownCard('PLASTIC', '${(totalWaste * 0.4).toStringAsFixed(1)} kg', Icons.recycling, Colors.blue)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildWasteBreakdownCard('ORGANIC', '${(totalWaste * 0.6).toStringAsFixed(1)} kg', Icons.eco, Colors.orange)),
-              ],
-            ),
+            // Real Waste Breakdown
+            _buildRealWasteBreakdown(),
 
             const SizedBox(height: 24),
 
@@ -328,6 +325,103 @@ class _ImpactStatsScreenState extends State<ImpactStatsScreen> {
         ),
         Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
       ],
+    );
+  }
+
+  Widget _buildRealWasteBreakdown() {
+    final typeColors = <String, Color>{
+      'Plastic': AppColors.plastic,
+      'Organic': AppColors.organic,
+      'Paper': AppColors.paper,
+      'Metal': AppColors.metal,
+      'Glass': AppColors.glass,
+      'E-Waste': AppColors.ewaste,
+      'Hazardous': AppColors.hazardous,
+    };
+
+    return FutureBuilder<Map<String, double>>(
+      future: _supabaseService.getWasteBreakdown(),
+      builder: (context, snapshot) {
+        final breakdown = snapshot.data ?? {};
+
+        if (breakdown.isEmpty) {
+          return Row(
+            children: [
+              Expanded(child: _buildWasteBreakdownCard('PLASTIC', '0 kg', Icons.recycling, Colors.blue)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildWasteBreakdownCard('ORGANIC', '0 kg', Icons.eco, Colors.orange)),
+            ],
+          );
+        }
+
+        final total = breakdown.values.fold<double>(0, (s, v) => s + v);
+        final entries = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Waste Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 4),
+              const Text('Based on your completed pickups', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 160,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: PieChart(
+                        PieChartData(
+                          sections: entries.map((e) {
+                            final pct = (e.value / total * 100);
+                            final color = typeColors[e.key] ?? AppColors.primary;
+                            return PieChartSectionData(
+                              value: e.value,
+                              color: color,
+                              radius: 50,
+                              title: '${pct.round()}%',
+                              titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            );
+                          }).toList(),
+                          centerSpaceRadius: 30,
+                          sectionsSpace: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: entries.map((e) {
+                          final color = typeColors[e.key] ?? AppColors.primary;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(e.key, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                                Text('${e.value.toStringAsFixed(1)}kg', style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

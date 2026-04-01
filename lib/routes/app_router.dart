@@ -23,6 +23,12 @@ import '../screens/qr_scanner_screen.dart';
 import '../screens/my_address_screen.dart';
 import '../screens/payment_methods_screen.dart';
 import '../screens/scan_waste_screen.dart';
+// ─── New Feature Screens ───
+import '../screens/pickup_history_screen.dart';
+import '../screens/pickup_detail_screen.dart';
+import '../screens/collector_earnings_screen.dart';
+import '../screens/onboarding_screen.dart';
+import '../screens/chat_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -33,6 +39,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const LandingScreen());
       case '/splash':
         return MaterialPageRoute(builder: (_) => const SplashScreen());
+      case '/onboarding':
+        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
       case '/create-account':
         return MaterialPageRoute(builder: (_) => const CreateAccountScreen());
       case '/login':
@@ -51,7 +59,6 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const WasteGuideScreen());
       case '/collector-dashboard':
         return MaterialPageRoute(builder: (_) => const CollectorDashboardScreen());
-
       case '/notifications':
         return MaterialPageRoute(builder: (_) => const NotificationCenterScreen());
       case '/profile':
@@ -78,6 +85,15 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const PaymentMethodsScreen());
       case '/scan-waste':
         return MaterialPageRoute(builder: (_) => const ScanWasteScreen());
+      // ─── New Routes ───
+      case '/pickup-history':
+        return MaterialPageRoute(builder: (_) => const PickupHistoryScreen());
+      case '/pickup-detail':
+        return MaterialPageRoute(builder: (_) => const PickupDetailScreen(), settings: settings);
+      case '/collector-earnings':
+        return MaterialPageRoute(builder: (_) => const CollectorEarningsScreen());
+      case '/chat':
+        return MaterialPageRoute(builder: (_) => const ChatScreen(), settings: settings);
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

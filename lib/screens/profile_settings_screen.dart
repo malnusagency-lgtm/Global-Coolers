@@ -6,6 +6,7 @@ import '../providers/user_provider.dart';
 import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
 import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 import './privacy_policy_screen.dart';
 
 
@@ -148,6 +149,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _buildSettingItem(l10n.translate('notifications'), Icons.notifications_none_rounded, AppColors.primary, () {
                 Navigator.pushNamed(context, '/notifications');
               }),
+
+              _buildSettingItem('Pickup History', Icons.history_rounded, AppColors.mint, () {
+                Navigator.pushNamed(context, '/pickup-history');
+              }),
+
+              if (userProvider.isCollector)
+                _buildSettingItem('My Earnings', Icons.account_balance_wallet_rounded, AppColors.amber, () {
+                  Navigator.pushNamed(context, '/collector-earnings');
+                }),
               
               const SizedBox(height: 24),
               Text(

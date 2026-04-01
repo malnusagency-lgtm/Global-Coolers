@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
   const LiveTrackingScreen({super.key});
@@ -228,10 +229,27 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         ),
                       ),
                       if (_collectorPhone.isNotEmpty) ...[
-                        _buildActionButton(Icons.phone, AppColors.success),
+                        _buildActionButton(Icons.phone, AppColors.success, () async {
+                          final uri = Uri.parse('tel:$_collectorPhone');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri);
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch phone dialer')));
+                          }
+                        }),
                         const SizedBox(width: 12),
+                        _buildActionButton(Icons.message, AppColors.primary, () async {
+                          // Simple SMS launch or WhatsApp depending on preference. Using SMS here.
+                          final uri = Uri.parse('sms:$_collectorPhone');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri);
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch messages')));
+                          }
+                        }),
+                      ] else ...[
+                        _buildActionButton(Icons.message, AppColors.primary, () {}),
                       ],
-                      _buildActionButton(Icons.message, AppColors.primary),
                     ],
                   ),
                 ],
@@ -243,10 +261,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, Color color) {
+  Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed) {
     return Container(
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: IconButton(icon: Icon(icon, color: Colors.white, size: 20), onPressed: () {}),
+      child: IconButton(icon: Icon(icon, color: Colors.white, size: 20), onPressed: onPressed),
     );
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
+import 'package:latlong2/latlong.dart';
+import '../services/supabase_service.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -78,34 +80,33 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
 
       final pickup = await _supabaseService.verifyPickupByQr(code);
 
+      // Geo-fencing verification
+      final pickupLat = (pickup['latitude'] as num?)?.toDouble();
+      final pickupLng = (pickup['longitude'] as num?)?.toDouble();
+
+      if (pickupLat != null && pickupLng != null) {
+        final currentPos = await _supabaseService.getCurrentPosition();
+        if (currentPos != null) {
+          final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
+          final targetLatLng = LatLng(pickupLat, pickupLng);
+          final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
+
+          if (distance > 150) {
+            if (!mounted) return;
+            Navigator.pop(context); // Pop loading
+            _showErrorDialog('Verification Failed', 'You are too far from the pickup location to scan this QR code. Please move closer.');
+            return;
+          }
+        }
+      }
+
       if (!mounted) return;
       Navigator.pop(context); // Pop loading
 
-      // Calculate points from weight
-      final double weightKg = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
-      final int costKes = (pickup['cost_kes'] as num?)?.toInt() ?? 0;
-      final int residentPoints = (weightKg * 20).round();  // Resident earns 20 pts/kg
-      final int collectorPoints = (weightKg * 10).round();  // Collector earns 10 pts/kg
+      // Show bottom sheet to verify actual weight
+      final double estimatedWeight = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
+      _showWeightVerificationSheet(pickup, estimatedWeight);
 
-      // Award points to BOTH resident and collector
-      await _supabaseService.completePickup(
-        pickup['id'].toString(),
-        pickup['user_id'].toString(),
-        residentPoints,
-        collectorPoints: collectorPoints,
-      );
-
-      if (!mounted) return;
-
-      // Show animated success dialog with earnings breakdown
-      _showSuccessDialog(
-        residentName: pickup['profiles']?['full_name'] ?? 'Resident',
-        wasteType: pickup['waste_type'] ?? 'Waste',
-        pointsAwarded: collectorPoints,
-        residentPoints: residentPoints,
-        weightKg: weightKg,
-        costKes: costKes,
-      );
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Pop loading
@@ -122,6 +123,113 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
       }
 
       _showErrorDialog(errorTitle, errorMessage);
+    }
+  }
+
+  void _showWeightVerificationSheet(Map<String, dynamic> pickup, double estimatedWeight) {
+    double actualWeight = estimatedWeight;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+                  const SizedBox(height: 20),
+                  const Text('Verify Pickup Weight', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text('Resident estimated ${estimatedWeight}kg. Please confirm the actual physical weight collected.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, size: 32, color: AppColors.primary),
+                        onPressed: () {
+                          if (actualWeight > 0.5) setModalState(() => actualWeight -= 0.5);
+                        },
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                        child: Text('${actualWeight} kg', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 32, color: AppColors.primary),
+                        onPressed: () {
+                          if (actualWeight < 50) setModalState(() => actualWeight += 0.5);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _finalizePickupWithWeight(pickup, actualWeight);
+                      },
+                      child: const Text('Confirm & Complete', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _finalizePickupWithWeight(Map<String, dynamic> pickup, double confirmedWeightKg) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+
+      // Re-calculate based on confirmed weight
+      final int originalCostKes = (pickup['cost_kes'] as num?)?.toInt() ?? 0;
+      final int residentPoints = (confirmedWeightKg * 20).round();
+      final int collectorPoints = (confirmedWeightKg * 10).round();
+
+      await _supabaseService.completePickup(
+        pickup['id'].toString(),
+        pickup['user_id'].toString(),
+        residentPoints,
+        collectorPoints: collectorPoints,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Pop loading
+
+      _showSuccessDialog(
+        residentName: pickup['profiles']?['full_name'] ?? 'Resident',
+        wasteType: pickup['waste_type'] ?? 'Waste',
+        pointsAwarded: collectorPoints,
+        residentPoints: residentPoints,
+        weightKg: confirmedWeightKg,
+        costKes: originalCostKes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Pop loading
+      _showErrorDialog('Completion Failed', e.toString().replaceAll('Exception: ', ''));
     }
   }
 

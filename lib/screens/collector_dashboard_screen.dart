@@ -6,6 +6,7 @@ import '../widgets/activity_item.dart';
 import '../services/supabase_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import 'package:latlong2/latlong.dart';
 
 class CollectorDashboardScreen extends StatefulWidget {
   const CollectorDashboardScreen({super.key});
@@ -817,6 +818,23 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           try {
+                            final pickupLat = (p['latitude'] as num?)?.toDouble();
+                            final pickupLng = (p['longitude'] as num?)?.toDouble();
+
+                            if (pickupLat != null && pickupLng != null) {
+                              final currentPos = await _supabaseService.getCurrentPosition();
+                              if (currentPos != null) {
+                                final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
+                                final targetLatLng = LatLng(pickupLat, pickupLng);
+                                final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
+
+                                if (distance > 150) { // 150 meters geo-fence
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are too far from the pickup location to arrive.'), backgroundColor: Colors.red));
+                                  return;
+                                }
+                              }
+                            }
+                            
                             await _supabaseService.markPickupArrived(p['id'].toString());
                             if (mounted) setState(() {});
                           } catch (e) {

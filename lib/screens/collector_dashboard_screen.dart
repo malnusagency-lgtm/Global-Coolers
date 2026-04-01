@@ -201,9 +201,13 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
     }
   }
 
-  Future<void> _claimPickup(Map<String, dynamic> pickup) async {
+  Future<void> _claimPickup(Map<String, dynamic> pickup, {String? initialStatus, String? scheduledArrival}) async {
     try {
-      await _supabaseService.claimPickup(pickup['id'].toString());
+      await _supabaseService.claimPickup(
+        pickup['id'].toString(),
+        initialStatus: initialStatus,
+        scheduledArrival: scheduledArrival,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pickup claimed! 🎉 It\'s now in your task list.'), backgroundColor: AppColors.success),
@@ -657,19 +661,41 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
           const SizedBox(width: 8),
           const Text('Claim Pickup?'),
         ]),
-        content: Text('Claim this ${pickup['waste_type']} pickup at ${pickup['address'] ?? 'the given location'}? It will be added to your assigned tasks.'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Claim this ${pickup['waste_type']} pickup at ${pickup['address'] ?? 'the given location'}?'),
+            const SizedBox(height: 16),
+            const Text('Choose your response:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
-              _claimPickup(pickup);
+              _claimPickup(pickup, initialStatus: 'in_transit');
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
-            child: const Text('Claim It', style: TextStyle(color: Colors.white)),
+            icon: const Icon(Icons.flash_on_rounded, size: 14),
+            label: const Text('Go Now', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+              if (pickedTime != null) {
+                final arrivalTime = pickedTime.format(context);
+                _claimPickup(pickup, initialStatus: 'accepted', scheduledArrival: arrivalTime);
+              }
+            },
+            icon: const Icon(Icons.calendar_month_rounded, size: 14),
+            label: const Text('Schedule', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white),
           ),
         ],
       ),

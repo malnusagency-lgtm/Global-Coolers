@@ -293,15 +293,19 @@ class SupabaseService {
   }
 
   /// Collector claims an unassigned pickup
-  Future<void> claimPickup(String pickupId) async {
+  Future<void> claimPickup(String pickupId, {String? initialStatus, String? scheduledArrival}) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Not logged in');
 
     try {
-      await _supabase.from('pickups').update({
+      final updates = {
         'collector_id': userId,
         'is_assigned': true,
-      }).eq('id', pickupId);
+      };
+      if (initialStatus != null) updates['status'] = initialStatus;
+      if (scheduledArrival != null) updates['scheduled_arrival'] = scheduledArrival;
+
+      await _supabase.from('pickups').update(updates).eq('id', pickupId);
     } catch (e) {
       debugPrint('Claim Pickup Error: $e');
       rethrow;

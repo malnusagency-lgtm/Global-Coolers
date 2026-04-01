@@ -158,23 +158,43 @@ class _PickupDetailScreenState extends State<PickupDetailScreen> {
                             Text(collector?['phone'] ?? '', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                           ],
                         )),
-                        if (status == 'in_transit' || status == 'accepted')
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.pushNamed(context, '/live-tracking', arguments: {
-                              'collectorId': p['collector_id'],
-                              'pickupId': p['id'].toString(),
-                              'qrCode': qrCode,
-                              'wasteType': wasteType,
-                            }),
-                            icon: const Icon(Icons.location_on_rounded, size: 16),
-                            label: const Text('Track', style: TextStyle(fontSize: 12)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                            ),
+                        if (status != 'completed' && status != 'cancelled')
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal, size: 22),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context, 
+                                    '/chat', 
+                                    arguments: {
+                                      'pickupId': p['id'].toString(),
+                                      'recipientName': collector?['full_name'] ?? 'Collector',
+                                    }
+                                  );
+                                },
+                                tooltip: 'Chat with Collector',
+                              ),
+                              if (status == 'in_transit' || status == 'accepted' || status == 'arrived')
+                                ElevatedButton.icon(
+                                  onPressed: () => Navigator.pushNamed(context, '/live-tracking', arguments: {
+                                    'collectorId': p['collector_id'],
+                                    'pickupId': p['id'].toString(),
+                                    'qrCode': qrCode,
+                                    'wasteType': wasteType,
+                                  }),
+                                  icon: const Icon(Icons.location_on_rounded, size: 16),
+                                  label: const Text('Track', style: TextStyle(fontSize: 12)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    elevation: 0,
+                                  ),
+                                ),
+                            ],
                           ),
                       ],
                     ),

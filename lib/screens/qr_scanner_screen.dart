@@ -196,7 +196,40 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
   }
 
   Future<void> _finalizePickupWithWeight(Map<String, dynamic> pickup, double confirmedWeightKg) async {
+    // Step 1: Payment Confirmation
+    final bool? paymentConfirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.payments_rounded, color: AppColors.amber),
+            SizedBox(width: 8),
+            Text('Confirm Payment'),
+          ],
+        ),
+        content: Text('Have you received the payment of KES ${pickup['cost_kes'] ?? 0} from ${pickup['profiles']?['full_name'] ?? 'the resident'}?\n\nPoints will be awarded to both of you only after you confirm receipt of payment.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not Yet', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Yes, Payment Received', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (paymentConfirmed != true) return;
+
     try {
+      if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,

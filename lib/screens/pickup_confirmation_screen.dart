@@ -1,18 +1,66 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_colors.dart';
+import '../services/supabase_service.dart';
 
-class PickupConfirmationScreen extends StatelessWidget {
+class PickupConfirmationScreen extends StatefulWidget {
   const PickupConfirmationScreen({super.key});
 
   @override
+  State<PickupConfirmationScreen> createState() => _PickupConfirmationScreenState();
+}
+
+class _PickupConfirmationScreenState extends State<PickupConfirmationScreen> {
+  final SupabaseService _supabaseService = SupabaseService();
+  StreamSubscription? _pickupSubscription;
+  bool _isInit = false;
+  String? _qrCode;
+  String? _wasteType;
+  double? _weightKg;
+  int? _costKes;
+  String? _pickupId;
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInit) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      _qrCode = args?['qrCode'] ?? 'no_code';
+      _wasteType = args?['wasteType'] ?? 'General';
+      _weightKg = (args?['weightKg'] as num?)?.toDouble() ?? 1.0;
+      _costKes = (args?['costKes'] as num?)?.toInt() ?? 0;
+      _pickupId = args?['pickupId']?.toString();
+      
+      if (_pickupId != null) {
+        _startListening();
+      }
+      _isInit = true;
+    }
+  }
+
+  void _startListening() {
+    _pickupSubscription = _supabaseService.streamPickupStatus(_pickupId!).listen((status) {
+      if (!mounted) return;
+      if (status['status'] == 'completed') {
+        // Points banner is handled globally by GlobalNotificationWrapper
+        _pickupSubscription?.cancel();
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pickupSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final String qrCode = args?['qrCode'] ?? 'no_code';
-    final String wasteType = args?['wasteType'] ?? 'General';
-    final double weightKg = (args?['weightKg'] as num?)?.toDouble() ?? 1.0;
-    final int costKes = (args?['costKes'] as num?)?.toInt() ?? 0;
-    final int pointsEarned = (weightKg * 20).round();
+    final int pointsEarned = ((_weightKg ?? 1.0) * 20).round();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -59,11 +107,11 @@ class PickupConfirmationScreen extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildSummaryItem(Icons.delete_outline_rounded, wasteType, 'Type'),
+                    _buildSummaryItem(Icons.delete_outline_rounded, _wasteType ?? 'N/A', 'Type'),
                     Container(width: 1, height: 40, color: Colors.grey.shade200),
-                    _buildSummaryItem(Icons.scale_rounded, '${weightKg % 1 == 0 ? weightKg.toInt() : weightKg} kg', 'Weight'),
+                    _buildSummaryItem(Icons.scale_rounded, '${_weightKg! % 1 == 0 ? _weightKg!.toInt() : _weightKg} kg', 'Weight'),
                     Container(width: 1, height: 40, color: Colors.grey.shade200),
-                    _buildSummaryItem(Icons.payments_rounded, 'KES $costKes', 'Cost'),
+                    _buildSummaryItem(Icons.payments_rounded, 'KES $_costKes', 'Cost'),
                     Container(width: 1, height: 40, color: Colors.grey.shade200),
                     _buildSummaryItem(Icons.stars_rounded, '+$pointsEarned', 'Points'),
                   ],
@@ -99,7 +147,7 @@ class PickupConfirmationScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     QrImageView(
-                      data: qrCode,
+                      data: _qrCode ?? 'no_code',
                       version: QrVersions.auto,
                       size: 180.0,
                       eyeStyle: const QrEyeStyle(

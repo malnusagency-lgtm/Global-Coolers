@@ -7,6 +7,7 @@ import 'providers/locale_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
+import 'widgets/global_notification_wrapper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +23,9 @@ Future<void> main() async {
   }
 
   runApp(
-    const MyApp(),
+    const GlobalNotificationWrapper(
+      child: MyApp(),
+    ),
   );
 }
 
@@ -39,6 +42,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
           return MaterialApp(
+            scaffoldMessengerKey: scaffoldMessengerKey,
             title: 'Global Coolers',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,

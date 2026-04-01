@@ -61,7 +61,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                           child: NotificationCard(
                             title: n.title,
                             message: n.message,
-                            time: n.time,
+                            time: n.timeFormatted,
                             icon: n.icon,
                             color: n.color,
                             type: n.type,
@@ -86,7 +86,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       message: user.isCollector 
           ? 'You are now a verified collector. Go online to start receiving waste pickup assignments!' 
           : 'Thank you for joining the green movement! Your first 500 EcoPoints have been added.',
-      time: 'Just now',
+      timestamp: DateTime.now().subtract(const Duration(days: 7)),
       icon: Icons.celebration,
       color: AppColors.primary,
       category: 'System',
@@ -97,23 +97,50 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       final status = item['status'];
       final wasteType = item['waste_type'];
       final isResident = !user.isCollector;
+      
+      DateTime eventTime;
+      try {
+        eventTime = DateTime.parse(item['created_at'] ?? DateTime.now().toIso8601String());
+      } catch (e) {
+        eventTime = DateTime.now();
+      }
 
       if (isResident) {
         if (status == 'scheduled') {
           list.add(_NotificationData(
-            title: 'Pickup Confirmed 🚛',
-            message: 'Your $wasteType pickup is scheduled. We have assigned a collector nearby.',
-            time: item['date'] ?? 'Upcoming',
+            title: 'Pickup Scheduled 🚛',
+            message: 'Your $wasteType pickup is scheduled for ${item['date'] ?? 'upcoming'}.',
+            timestamp: eventTime,
             icon: Icons.schedule,
             color: AppColors.info,
             category: 'Activity',
             type: NotificationType.activity,
           ));
+        } else if (status == 'in_transit') {
+          list.add(_NotificationData(
+             title: 'Driver on the Way! 📍',
+             message: 'A collector has accepted your immediate request.',
+             timestamp: eventTime.add(const Duration(minutes: 5)),
+             icon: Icons.local_shipping,
+             color: Colors.orange,
+             category: 'Activity',
+             type: NotificationType.activity,
+          ));
+        } else if (status == 'accepted') {
+          list.add(_NotificationData(
+             title: 'Collector Confirmed',
+             message: 'Collector agreed to arrive at ${item['scheduled_arrival'] ?? 'soon'}.',
+             timestamp: eventTime.add(const Duration(minutes: 5)),
+             icon: Icons.handshake,
+             color: AppColors.primary,
+             category: 'Activity',
+             type: NotificationType.activity,
+          ));
         } else if (status == 'completed') {
           list.add(_NotificationData(
             title: 'Waste Collected! 🎉',
             message: 'Successfully recycled your $wasteType waste. EcoPoints have been credited.',
-            time: 'Completed',
+            timestamp: eventTime.add(const Duration(hours: 1)),
             icon: Icons.check_circle,
             color: AppColors.success,
             category: 'Activity',
@@ -122,11 +149,11 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
         }
       } else {
         // Collector notifications
-        if (status == 'scheduled') {
+        if (status == 'scheduled' || status == 'accepted' || status == 'in_transit') {
           list.add(_NotificationData(
             title: 'New Assignment 📍',
             message: 'A new $wasteType pickup at ${item['address']} has been assigned to you.',
-            time: 'New',
+            timestamp: eventTime,
             icon: Icons.local_shipping,
             color: AppColors.warning,
             category: 'Activity',
@@ -136,6 +163,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       }
     }
 
+    // Sort descending by time
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return list;
   }
 
@@ -179,16 +208,25 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 class _NotificationData {
   final String title;
   final String message;
-  final String time;
+  final DateTime timestamp;
   final IconData icon;
   final Color color;
   final String category;
   final NotificationType type;
 
+  String get timeFormatted {
+    final diff = DateTime.now().difference(timestamp);
+    if (diff.inDays > 7) return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    if (diff.inDays > 0) return '${diff.inDays} days ago';
+    if (diff.inHours > 0) return '${diff.inHours} hrs ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} mins ago';
+    return 'Just now';
+  }
+
   _NotificationData({
     required this.title,
     required this.message,
-    required this.time,
+    required this.timestamp,
     required this.icon,
     required this.color,
     required this.category,

@@ -325,6 +325,18 @@ class SupabaseService {
     }
   }
 
+  /// Generic update for status changes
+  Future<void> updatePickupStatus(String pickupId, String status) async {
+    try {
+      await _supabase.from('pickups').update({
+        'status': status,
+      }).eq('id', pickupId);
+    } catch (e) {
+      debugPrint('Update Status Error: $e');
+      rethrow;
+    }
+  }
+
   // ──────────────────────────────────────────────
   //  ADDRESS MANAGEMENT (SharedPreferences)
   // ──────────────────────────────────────────────

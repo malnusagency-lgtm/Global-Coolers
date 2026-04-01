@@ -776,11 +776,75 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
           ),
           const SizedBox(height: 16),
           // Action Buttons based on status
-          if (status == 'assigned' || status == 'in_transit')
+          if (status == 'assigned' || status == 'accepted' || status == 'in_transit')
             Column(
               children: [
                 Row(
                   children: [
+                    if (status == 'accepted') // Scheduled but not yet moving
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await _supabaseService.updatePickupStatus(p['id'].toString(), 'in_transit');
+                              if (mounted) setState(() {});
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                          label: const Text('Start Trip', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                        ),
+                      )
+                    else 
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              final pickupLat = (p['latitude'] as num?)?.toDouble();
+                              final pickupLng = (p['longitude'] as num?)?.toDouble();
+
+                              if (pickupLat != null && pickupLng != null) {
+                                final currentPos = await _supabaseService.getCurrentPosition();
+                                if (currentPos != null) {
+                                  final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
+                                  final targetLatLng = LatLng(pickupLat, pickupLng);
+                                  final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
+
+                                  if (distance > 150) {
+                                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are too far from the pickup location to arrive.'), backgroundColor: Colors.red));
+                                    return;
+                                  }
+                                }
+                              }
+                              
+                              await _supabaseService.markPickupArrived(p['id'].toString());
+                              if (mounted) setState(() {});
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          icon: const Icon(Icons.location_on_rounded, size: 16),
+                          label: const Text("I've Arrived", style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: status == 'in_transit' ? AppColors.success : AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    
+                    const SizedBox(width: 10),
+                    
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -813,54 +877,23 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          try {
-                            final pickupLat = (p['latitude'] as num?)?.toDouble();
-                            final pickupLng = (p['longitude'] as num?)?.toDouble();
-
-                            if (pickupLat != null && pickupLng != null) {
-                              final currentPos = await _supabaseService.getCurrentPosition();
-                              if (currentPos != null) {
-                                final currentLatLng = LatLng(currentPos.latitude, currentPos.longitude);
-                                final targetLatLng = LatLng(pickupLat, pickupLng);
-                                final distance = const Distance().as(LengthUnit.Meter, currentLatLng, targetLatLng);
-
-                                if (distance > 150) { // 150 meters geo-fence
-                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are too far from the pickup location to arrive.'), backgroundColor: Colors.red));
-                                  return;
-                                }
-                              }
-                            }
-                            
-                            await _supabaseService.markPickupArrived(p['id'].toString());
-                            if (mounted) setState(() {});
-                          } catch (e) {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                          }
-                        },
-                        icon: const Icon(Icons.location_on_rounded, size: 16),
-                        label: const Text("I've Arrived", style: TextStyle(fontSize: 12)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
+                if (status == 'accepted' && arrival != null) ...[
+                   const SizedBox(height: 10),
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                     decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                     child: Text('Scheduled for $arrival', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                   ),
+                ],
               ],
             )
           else if (status == 'arrived')
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/qr-scanner'),
+                onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}),
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                 label: const Text('Scan Resident QR', style: TextStyle(fontSize: 14)),
                 style: ElevatedButton.styleFrom(

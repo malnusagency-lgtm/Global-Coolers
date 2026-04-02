@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/locale_provider.dart';
 import '../utils/app_localizations.dart';
-import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import './privacy_policy_screen.dart';
 
@@ -317,22 +316,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final success = await ApiService.updateProfile(
-                userId: provider.userId,
-                fullName: nameController.text.trim(),
-                phone: phoneController.text.trim(),
-              );
-
-              if (success && ctx.mounted) {
-                Navigator.pop(ctx);
-                await provider.loadUserData();
-                if (context.mounted) {
+              try {
+                await SupabaseService().updateGenericProfile(
+                  fullName: nameController.text.trim(),
+                  phone: phoneController.text.trim(),
+                );
+                
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                  await provider.loadUserData();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile updated! ✅'), backgroundColor: AppColors.success),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (ctx.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile updated! ✅'), backgroundColor: AppColors.success),
+                    SnackBar(content: Text('Failed to update profile: $e')),
                   );
                 }
-              } else if (ctx.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile.')));
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
-import '../services/api_service.dart';
+import '../services/supabase_service.dart';
 import '../providers/user_provider.dart';
 
 class ReportIssueScreen extends StatefulWidget {
@@ -192,9 +192,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       setState(() => _isLoading = true);
                       
                       try {
-                        final userId = context.read<UserProvider>().userId;
-                        final success = await ApiService.submitReport(
-                          userId: userId,
+                        await SupabaseService().submitReport(
                           issueType: _selectedIssueType!,
                           location: _locationController.text,
                           description: _descController.text,
@@ -202,26 +200,17 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
                         if (!mounted) return;
 
-                        if (success) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Report submitted successfully!'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to submit report. Please try again.'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Report submitted successfully!'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                          SnackBar(content: Text('Failed to submit report: $e'), backgroundColor: Colors.red),
                         );
                       } finally {
                         if (mounted) setState(() => _isLoading = false);

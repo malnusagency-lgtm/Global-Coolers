@@ -177,7 +177,12 @@ class SupabaseService {
         throw Exception('Access denied: Only households can schedule pickups.');
       }
 
-      // 2. Insert pickup record (Broadcast as unassigned) and return data
+      // 2. Generate a unique QR code for verification (System -> Assignments)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final random = (timestamp % 10000).toString().padLeft(4, '0');
+      final qrCode = 'GC-$timestamp-$random';
+
+      // 3. Insert pickup record (Broadcast as unassigned) and return data
       final response = await _supabase.from('pickups').insert({
         'user_id': user.id,
         'date': date,
@@ -192,6 +197,7 @@ class SupabaseService {
         'is_immediate': isImmediate,
         'weight_kg': weightKg,
         'cost_kes': costKes,
+        'qr_code_id': qrCode, // Standardized QR field
       }).select().single();
 
       return response;
@@ -305,7 +311,17 @@ class SupabaseService {
       if (initialStatus != null) updates['status'] = initialStatus;
       if (scheduledArrival != null) updates['scheduled_arrival'] = scheduledArrival;
 
-      await _supabase.from('pickups').update(updates).eq('id', pickupId);
+      // ATOMIC CLAIM: Only update if collector_id is still NULL
+      final response = await _supabase
+          .from('pickups')
+          .update(updates)
+          .eq('id', pickupId)
+          .is('collector_id', null)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('This pickup was already claimed by another collector.');
+      }
     } catch (e) {
       debugPrint('Claim Pickup Error: $e');
       rethrow;
@@ -479,29 +495,63 @@ class SupabaseService {
   //  PICKUP COMPLETION & TRACKING
   // ──────────────────────────────────────────────
 
-  Future<void> completePickup(String pickupId, String residentUserId, int residentPoints, {int collectorPoints = 0}) async {
+  /// Mandatory QR verification to complete a pickup and award rewards
+  Future<void> completePickup({
+    required String pickupId, 
+    required String qrCode,
+  }) async {
     try {
       final collectorId = _supabase.auth.currentUser?.id;
+      if (collectorId == null) throw Exception('Not logged in');
 
-      // 1. Mark pickup as completed and store points
+      // 1. Fetch pickup and verify QR code
+      final pickup = await _supabase
+          .from('pickups')
+          .select('*, profiles(eco_points)')
+          .eq('id', pickupId)
+          .single();
+      
+      if (pickup['qr_code_id'] != qrCode) {
+        throw Exception('Invalid QR code. Verification failed.');
+      }
+
+      final residentUserId = pickup['user_id'];
+      final weight = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
+      
+      // Calculate reward points (Resident: 10 pts per kg, Collector: 5 pts per kg)
+      final residentPoints = (weight * 10).toInt();
+      final collectorPoints = (weight * 5).toInt();
+
+      // 2. Mark pickup as completed and store points awarded
       await _supabase.from('pickups').update({
         'status': 'completed',
         'points_awarded': residentPoints,
+        'completed_at': DateTime.now().toIso8601String(),
       }).eq('id', pickupId);
 
-      // 2. Award points to the Resident
-      final residentProfile = await _supabase.from('profiles').select('eco_points').eq('id', residentUserId).single();
-      await _supabase.from('profiles').update({
-        'eco_points': (residentProfile['eco_points'] as int) + residentPoints,
-      }).eq('id', residentUserId);
-
-      // 3. Award points to the Collector
-      if (collectorId != null && collectorPoints > 0) {
-        final collectorProfile = await _supabase.from('profiles').select('eco_points').eq('id', collectorId).single();
+      // 3. Award points to the Resident (Atomic increment)
+      await _supabase.rpc('increment_points', params: {
+        'user_id': residentUserId,
+        'amount': residentPoints,
+      }).catchError((_) async {
+        // Fallback if RPC isn't available
+        final res = await _supabase.from('profiles').select('eco_points').eq('id', residentUserId).single();
         await _supabase.from('profiles').update({
-          'eco_points': (collectorProfile['eco_points'] as int) + collectorPoints,
+          'eco_points': (res['eco_points'] as int) + residentPoints,
+        }).eq('id', residentUserId);
+      });
+
+      // 4. Award points to the Collector (Atomic increment)
+      await _supabase.rpc('increment_points', params: {
+        'user_id': collectorId,
+        'amount': collectorPoints,
+      }).catchError((_) async {
+        final res = await _supabase.from('profiles').select('eco_points').eq('id', collectorId).single();
+        await _supabase.from('profiles').update({
+          'eco_points': (res['eco_points'] as int) + collectorPoints,
         }).eq('id', collectorId);
-      }
+      });
+
     } catch (e) {
       debugPrint('Complete Pickup Error: $e');
       rethrow;
@@ -796,6 +846,74 @@ class SupabaseService {
       });
     } catch (e) {
       debugPrint('Join Challenge Error: $e');
+      rethrow;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  CONSOLIDATED API METHODS (From ApiService)
+  // ──────────────────────────────────────────────
+
+  Future<List<dynamic>> getAllChallenges() async {
+    try {
+      final response = await _supabase
+          .from('challenges')
+          .select('*')
+          .order('ends_at', ascending: true);
+      return response as List<dynamic>;
+    } catch (e) {
+      debugPrint('Get All Challenges Error: $e');
+      return [];
+    }
+  }
+
+  Future<void> submitReport({
+    required String issueType,
+    required String location,
+    required String description,
+    String? photoUrl,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    try {
+      await _supabase.from('reports').insert({
+        'user_id': userId,
+        'issue_type': issueType,
+        'location': location,
+        'description': description,
+        'photo_url': photoUrl,
+        'status': 'pending'
+      });
+    } catch (e) {
+      debugPrint('Submit Report Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateGenericProfile({
+    String? fullName,
+    String? phone,
+    String? address,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+
+    final updates = <String, dynamic>{};
+    if (fullName != null) updates['full_name'] = fullName;
+    if (phone != null) updates['phone'] = phone;
+    if (address != null) updates['address'] = address;
+    if (latitude != null) updates['latitude'] = latitude;
+    if (longitude != null) updates['longitude'] = longitude;
+
+    if (updates.isEmpty) return;
+
+    try {
+      await _supabase.from('profiles').update(updates).eq('id', userId);
+    } catch (e) {
+      debugPrint('Update Generic Profile Error: $e');
       rethrow;
     }
   }

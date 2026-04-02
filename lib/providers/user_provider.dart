@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 
 enum AppRole { resident, collector }
@@ -90,11 +89,11 @@ class UserProvider extends ChangeNotifier {
       
       for (int attempt = 1; attempt <= 3; attempt++) {
         try {
-          data = await ApiService.getUserProfile(_userId);
+          data = await SupabaseService().getProfile();
           break;
         } catch (e) {
           fetchError = e is Exception ? e : Exception(e.toString());
-          debugPrint('getUserProfile attempt $attempt failed: $e');
+          debugPrint('getProfile attempt $attempt failed: $e');
           if (attempt < 3) {
             await Future.delayed(Duration(milliseconds: 500 * attempt));
           }
@@ -104,7 +103,7 @@ class UserProvider extends ChangeNotifier {
       if (data != null) {
         _userName = data['full_name'] ?? 'User';
         _ecoPoints = data['eco_points'] ?? 0;
-        _totalWasteDiverted = data['co2_saved'] ?? 0;
+        _totalWasteDiverted = (data['co2_saved'] ?? 0) is num ? (data['co2_saved'] as num).toInt() : 0;
         final roleStr = (data['role'] as String? ?? 'resident').toLowerCase();
         _role = roleStr == 'collector' ? AppRole.collector : AppRole.resident;
 
@@ -161,16 +160,16 @@ class UserProvider extends ChangeNotifier {
     if (_userId.isEmpty) return false;
 
     try {
-      final success = await ApiService.redeemReward(
-        userId: _userId,
-        rewardId: rewardId,
-        pointsCost: cost,
+      final mpesaNumber = _phone; // Default to user's registered phone
+      await SupabaseService().redeemReward(
+        rewardId,
+        cost,
+        mpesaNumber,
       );
-      if (success) {
-        _ecoPoints -= cost;
-        notifyListeners();
-      }
-      return success;
+      
+      _ecoPoints -= cost;
+      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint('Redeem error: $e');
       return false;

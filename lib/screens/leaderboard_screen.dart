@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -27,15 +26,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   void _fetchLeaderboard() {
     setState(() {
-      if (_isNeighborhood) {
-        _leaderboardFuture = _supabaseService.getNeighborhoodLeaderboard(
-          sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
-        );
-      } else {
-        _leaderboardFuture = ApiService.getLeaderboard(
-          sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
-        );
-      }
+      _leaderboardFuture = _supabaseService.getLeaderboard(
+        sortBy: _selectedMetric == 0 ? 'co2_saved' : 'eco_points',
+        isNeighborhood: _isNeighborhood,
+      );
     });
   }
 

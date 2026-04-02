@@ -3,7 +3,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/supabase_service.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});

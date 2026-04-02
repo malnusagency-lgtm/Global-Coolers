@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/reward_item.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../widgets/badge_item.dart';
+import '../services/supabase_service.dart';
 
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({super.key});
@@ -198,7 +198,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               const SizedBox(height: 16),
               
               FutureBuilder<List<dynamic>>(
-                future: ApiService.getRewards(),
+                future: SupabaseService().getRewards(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -234,7 +234,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       children: rewards.map((reward) {
                         return RewardItem(
                           title: reward['title'],
-                          subtitle: reward['partner'],
+                          subtitle: reward['partner'] ?? 'Global Coolers',
                           points: reward['cost'],
                           imageAsset: '',
                           imageUrl: reward['image_url'],

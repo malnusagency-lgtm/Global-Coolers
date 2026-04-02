@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../services/api_service.dart';
 import '../services/supabase_service.dart';
 
 class CommunityChallengesScreen extends StatefulWidget {
@@ -123,7 +122,7 @@ class _CommunityChallengesScreenState extends State<CommunityChallengesScreen> {
 
   Widget _buildAllChallenges() {
     return FutureBuilder<List<dynamic>>(
-      future: ApiService.getChallenges(),
+      future: _supabaseService.getAllChallenges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(

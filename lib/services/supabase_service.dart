@@ -530,15 +530,13 @@ class SupabaseService {
     double? actualWeightKg,
   }) async {
     try {
-      final weight = actualWeightKg ?? 1.0;
-
       // Let Postgres handle the verification and point generation securely!
       await _supabase.rpc(
         'collector_complete_pickup',
         params: {
           'p_pickup_id': pickupId,
           'p_qr_code': qrCode,
-          'p_actual_weight': weight,
+          'p_actual_weight': actualWeightKg,
         },
       );
     } catch (e) {
@@ -586,7 +584,7 @@ class SupabaseService {
     try {
       final response = await _supabase
           .from('pickups')
-          .select('*, profiles(full_name)')
+          .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
           .eq('qr_code_id', code)
           .single();
       return response;
@@ -681,7 +679,12 @@ class SupabaseService {
   Future<List<dynamic>> getPendingPickups() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
-    final response = await _supabase.from('pickups').select('*, profiles(full_name)').eq('collector_id', userId).neq('status', 'completed').order('date', ascending: true);
+    final response = await _supabase
+        .from('pickups')
+        .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
+        .eq('collector_id', userId)
+        .neq('status', 'completed')
+        .order('date', ascending: true);
     return response as List<dynamic>;
   }
 
@@ -740,7 +743,7 @@ class SupabaseService {
         .stream(primaryKey: ['id'])
         .eq('user_id', userId)
         .asyncMap((list) async {
-          final activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
           final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
           if (active.isEmpty) return null;
           

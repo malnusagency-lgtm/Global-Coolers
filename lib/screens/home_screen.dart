@@ -368,78 +368,94 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.primary.withOpacity(0.15)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3)
+            )
+          ],
         ),
         child: Row(
           children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: typeColor.withOpacity(0.12),
-              shape: BoxShape.circle,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: typeColor.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(typeIcon, color: typeColor, size: 22),
             ),
-            child: Icon(typeIcon, color: typeColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(wasteType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 2),
-            Text(pickup['date'] ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-            if (pickup['address'] != null)
-              Text(pickup['address'], style: TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (pickup['weight_kg'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(color: typeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Text('${(pickup['weight_kg'] as num).toDouble() % 1 == 0 ? (pickup['weight_kg'] as num).toInt() : pickup['weight_kg']}kg', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: typeColor)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(wasteType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(pickup['date'] ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  if (pickup['address'] != null)
+                    Text(
+                      pickup['address'],
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis
+                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (pickup['weight_kg'] != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(color: typeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text('${(pickup['weight_kg'] as num).toDouble() % 1 == 0 ? (pickup['weight_kg'] as num).toInt() : pickup['weight_kg']}kg', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: typeColor)),
+                        ),
+                      if (pickup['cost_kes'] != null && (pickup['cost_kes'] as num) > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text('KES ${pickup['cost_kes']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ),
+                    ],
                   ),
-                if (pickup['cost_kes'] != null && (pickup['cost_kes'] as num) > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Text('KES ${pickup['cost_kes']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildStatusChip(pickup['status'] ?? 'scheduled'),
+                const SizedBox(height: 6),
+                if ((pickup['status'] ?? 'scheduled') == 'scheduled')
+                  GestureDetector(
+                    onTap: () => _showCancelDialog(pickup),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close_rounded, size: 13, color: AppColors.error),
+                          const SizedBox(width: 3),
+                          Text('Cancel', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 11)),
+                        ],
+                      ),
+                    ),
                   ),
               ],
             ),
-          ])),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildStatusChip(pickup['status'] ?? 'scheduled'),
-              const SizedBox(height: 6),
-              if ((pickup['status'] ?? 'scheduled') == 'scheduled')
-                GestureDetector(
-                  onTap: () => _showCancelDialog(pickup),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.close_rounded, size: 13, color: AppColors.error),
-                        const SizedBox(width: 3),
-                        Text('Cancel', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildStatusChip(String status) {
     Color color;

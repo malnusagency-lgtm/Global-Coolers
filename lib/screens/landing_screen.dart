@@ -80,14 +80,21 @@ class LandingScreen extends StatelessWidget {
                       children: [
                         const SizedBox(height: 60),
                         // New Branded Header
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.15)),
-                          ),
-                          child: Image.asset('assets/images/leaf_logo.png', height: 28),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset('assets/images/leaf_logo.png', height: 26),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'GLOBAL COOLERS',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 3.5,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 24),
                         Text(

@@ -91,15 +91,9 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   );
                 },
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.05)),
-                  ),
+                child: SizedBox(
+                  width: 120,
+                  height: 120,
                   child: Image.asset('assets/images/leaf_logo.png', fit: BoxFit.contain),
                 ),
               ),

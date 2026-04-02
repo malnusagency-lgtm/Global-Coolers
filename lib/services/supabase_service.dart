@@ -734,17 +734,35 @@ class SupabaseService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return const Stream.empty();
 
+    // Strategy: Stream pickups, but if a collector is assigned, we fetch their name via a separate call or cached logic
     return _supabase
         .from('pickups')
         .stream(primaryKey: ['id'])
         .eq('user_id', userId)
-        .map((list) {
+        .asyncMap((list) async {
           final activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
           final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
           if (active.isEmpty) return null;
+          
           // Most recent first
           active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
-          return active.first as Map<String, dynamic>;
+          final pickup = Map<String, dynamic>.from(active.first);
+
+          // If a collector is assigned, let's try to get their name
+          if (pickup['collector_id'] != null) {
+            try {
+              final collector = await _supabase
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('id', pickup['collector_id'])
+                  .single();
+              pickup['collector_name'] = collector['full_name'];
+            } catch (e) {
+              pickup['collector_name'] = 'A Collector';
+            }
+          }
+          
+          return pickup;
         });
   }
 

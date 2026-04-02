@@ -196,9 +196,9 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pickup claimed! 🎉 It\'s now in your tasks.'), backgroundColor: AppColors.success),
         );
-        // Refresh everything
+        // Refresh both lists
         _loadNearbyPickups(); 
-        setState(() {}); 
+        setState(() {}); // Rebuild FutureBuilder for tasks
       }
     } catch (e) {
       if (mounted) {
@@ -536,6 +536,11 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(p['address'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text('${p['profiles']?['full_name'] ?? 'Resident'} ΓÇó ${p['waste_type']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                if (p['scheduled_arrival'] != null)
+                   Padding(
+                     padding: const EdgeInsets.only(top: 4),
+                     child: Text('Scheduled for: ${p['scheduled_arrival']}', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                   ),
               ])),
               _buildStatusBadge(status),
             ],

@@ -252,22 +252,25 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case 'accepted':
         title = 'Pickup Accepted! ✅';
-        subtitle = '$collectorName has agreed to collect your waste.';
+        final arrivalStr = pickup['scheduled_arrival'] != null 
+          ? ' for ${pickup['scheduled_arrival']}' 
+          : '';
+        subtitle = '$collectorName has scheduled your collection$arrivalStr.';
         emoji = '📅'; color = AppColors.info; icon = Icons.check_circle_rounded;
         break;
       case 'in_transit':
         title = 'Collector is on the way! 🚛';
-        subtitle = '$collectorName is heading to your location. Get your waste ready!';
+        subtitle = '$collectorName is heading to your location right now. Get your waste ready!';
         emoji = '🚛'; color = AppColors.primary; icon = Icons.local_shipping_rounded;
         break;
       case 'arrived':
         title = 'Collector has ARRIVED! 📍';
-        subtitle = '$collectorName is at your door. Show your QR code now!';
+        subtitle = '$collectorName is at your door. Show your QR code to complete the verification.';
         emoji = '📍'; color = AppColors.success; icon = Icons.location_on_rounded;
         break;
       default:
         title = 'Finding a Collector... 📡';
-        subtitle = 'We are broadcasting your request to nearby collectors.';
+        subtitle = 'Broadcasting your request to nearby collectors. Hang tight!';
         emoji = '📡'; color = AppColors.amber; icon = Icons.radar_rounded;
     }
 

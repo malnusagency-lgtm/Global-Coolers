@@ -60,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -69,8 +69,8 @@ class _SplashScreenState extends State<SplashScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white,
-              AppColors.primary.withOpacity(0.05),
+              AppColors.background,
+              AppColors.primary.withOpacity(0.02),
             ],
           ),
         ),
@@ -78,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Centered Logo with Leaf Branded Packaging look
+              // Clean Icon-Only Branded Logo in Rounded Box
               TweenAnimationBuilder(
                 duration: const Duration(seconds: 1),
                 tween: Tween<double>(begin: 0, end: 1),
@@ -86,56 +86,31 @@ class _SplashScreenState extends State<SplashScreen> {
                   return Opacity(
                     opacity: value,
                     child: Transform.scale(
-                      scale: 0.8 + (0.2 * value),
+                      scale: 0.9 + (0.1 * value),
                       child: child,
                     ),
                   );
                 },
                 child: Container(
-                  width: 180,
-                  height: 180,
-                  padding: const EdgeInsets.all(32),
+                  width: 100,
+                  height: 100,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.05)),
+                  ),
                   child: Image.asset('assets/images/leaf_logo.png', fit: BoxFit.contain),
                 ),
               ),
-              const SizedBox(height: 48),
-              
-              // Brand Name with spacing
-              const Text(
-                'GLOBAL COOLERS',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 4.0,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'SMARTER WASTE • CLEANER FUTURE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 80),
+              const SizedBox(height: 100),
               
               // Loading
               const SizedBox(
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 child: CircularProgressIndicator(
-                  strokeWidth: 3,
+                  strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 ),
               ),

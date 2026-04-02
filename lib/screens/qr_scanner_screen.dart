@@ -104,7 +104,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
 
       // Show bottom sheet to verify actual weight
       final double estimatedWeight = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
-      _showWeightVerificationSheet(pickup, estimatedWeight);
+      _showWeightVerificationSheet(pickup, estimatedWeight, code);
 
     } catch (e) {
       if (!mounted) return;
@@ -125,7 +125,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
     }
   }
 
-  void _showWeightVerificationSheet(Map<String, dynamic> pickup, double estimatedWeight) {
+  void _showWeightVerificationSheet(Map<String, dynamic> pickup, double estimatedWeight, String qrCode) {
     double actualWeight = estimatedWeight;
 
     showModalBottomSheet(
@@ -179,7 +179,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _finalizePickupWithWeight(pickup, actualWeight);
+                        _finalizePickupWithWeight(pickup, actualWeight, qrCode);
                       },
                       child: const Text('Confirm & Complete', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
@@ -194,7 +194,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
     );
   }
 
-  Future<void> _finalizePickupWithWeight(Map<String, dynamic> pickup, double confirmedWeightKg) async {
+  Future<void> _finalizePickupWithWeight(Map<String, dynamic> pickup, double confirmedWeightKg, String qrCode) async {
     // Step 1: Payment Confirmation
     final bool? paymentConfirmed = await showDialog<bool>(
       context: context,
@@ -241,10 +241,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
       final int collectorPoints = (confirmedWeightKg * 10).round();
 
       await _supabaseService.completePickup(
-        pickup['id'].toString(),
-        pickup['user_id'].toString(),
-        residentPoints,
-        collectorPoints: collectorPoints,
+        pickupId: pickup['id'].toString(),
+        qrCode: qrCode,
+        actualWeightKg: confirmedWeightKg,
       );
 
       if (!mounted) return;

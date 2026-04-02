@@ -316,7 +316,7 @@ class SupabaseService {
           .from('pickups')
           .update(updates)
           .eq('id', pickupId)
-          .is('collector_id', null)
+          .filter('collector_id', 'is', null)
           .select();
 
       if (response.isEmpty) {
@@ -499,6 +499,7 @@ class SupabaseService {
   Future<void> completePickup({
     required String pickupId, 
     required String qrCode,
+    double? actualWeightKg,
   }) async {
     try {
       final collectorId = _supabase.auth.currentUser?.id;
@@ -516,18 +517,23 @@ class SupabaseService {
       }
 
       final residentUserId = pickup['user_id'];
-      final weight = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
+      final weight = actualWeightKg ?? ((pickup['weight_kg'] as num?)?.toDouble() ?? 1.0);
       
       // Calculate reward points (Resident: 10 pts per kg, Collector: 5 pts per kg)
       final residentPoints = (weight * 10).toInt();
       final collectorPoints = (weight * 5).toInt();
 
-      // 2. Mark pickup as completed and store points awarded
-      await _supabase.from('pickups').update({
+      // 2. Mark pickup as completed and store points awarded (and actual weight if changed)
+      final updates = {
         'status': 'completed',
         'points_awarded': residentPoints,
         'completed_at': DateTime.now().toIso8601String(),
-      }).eq('id', pickupId);
+      };
+      if (actualWeightKg != null) {
+        updates['weight_kg'] = actualWeightKg;
+      }
+
+      await _supabase.from('pickups').update(updates).eq('id', pickupId);
 
       // 3. Award points to the Resident (Atomic increment)
       await _supabase.rpc('increment_points', params: {
@@ -581,6 +587,18 @@ class SupabaseService {
     await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
   }
 
+  Future<bool> isNearLocation(double targetLat, double targetLng, {double radiusMeters = 200}) async {
+    final pos = await getCurrentPosition();
+    if (pos == null) return false;
+    
+    final distance = const Distance().as(LengthUnit.Meter, 
+      LatLng(pos.latitude, pos.longitude), 
+      LatLng(targetLat, targetLng)
+    );
+    
+    return distance <= radiusMeters;
+  }
+
   Future<Map<String, dynamic>> verifyPickupByQr(String code) async {
     try {
       final response = await _supabase
@@ -612,8 +630,11 @@ class SupabaseService {
     }).eq('id', userId);
   }
 
-  Future<List<dynamic>> getLeaderboard() async {
-    final response = await _supabase.from('profiles').select().order('eco_points', ascending: false).limit(20);
+  Future<List<dynamic>> getLeaderboard({String sortBy = 'eco_points', bool isNeighborhood = false}) async {
+    if (isNeighborhood) {
+      return getNeighborhoodLeaderboard(sortBy: sortBy);
+    }
+    final response = await _supabase.from('profiles').select().order(sortBy, ascending: false).limit(20);
     return response as List<dynamic>;
   }
 

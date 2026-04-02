@@ -330,19 +330,27 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                'Join Nairobi\'s waste\nmanagement\ncommunity.',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                  height: 1.2,
+                const SizedBox(height: 20),
+                Center(
+                  child: Image.asset(
+                    'assets/images/leaf_logo.png',
+                    height: 80,
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Join Nairobi\'s waste\nmanagement\ community.',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
               const SizedBox(height: 12),
               const Text(
                 'Both email and phone number are required to create your account.',

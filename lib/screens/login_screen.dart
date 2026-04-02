@@ -232,24 +232,12 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
 
-                // Logo
+                // Branded Logo
                 Center(
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.15),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(20),
-                    child: Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
+                  child: Image.asset(
+                    'assets/images/leaf_logo.png',
+                    height: 80,
+                    fit: BoxFit.contain,
                   ),
                 ),
 

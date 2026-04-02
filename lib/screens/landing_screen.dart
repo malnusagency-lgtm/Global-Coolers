@@ -83,16 +83,31 @@ class LandingScreen extends StatelessWidget {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Image.asset('assets/images/leaf_logo.png', height: 26),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'GLOBAL COOLERS',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 3.5,
-                              ),
+                            Image.asset('assets/images/leaf_logo.png', height: 32),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'GLOBAL COOLERS',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 3.5,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'SMARTER WASTE MANAGEMENT',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

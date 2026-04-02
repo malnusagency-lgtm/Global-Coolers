@@ -108,20 +108,6 @@ class SupabaseService {
   }
 
   // ──────────────────────────────────────────────
-  //  REWARDS
-  // ──────────────────────────────────────────────
-
-  Future<List<dynamic>> getRewards() async {
-    try {
-      final response = await _supabase.from('rewards').select();
-      return response as List<dynamic>;
-    } catch (e) {
-      debugPrint('SupabaseService Rewards Error: $e');
-      return [];
-    }
-  }
-
-  // ──────────────────────────────────────────────
   //  PICKUPS
   // ──────────────────────────────────────────────
 

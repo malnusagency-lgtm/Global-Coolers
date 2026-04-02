@@ -13,6 +13,7 @@ class UserProvider extends ChangeNotifier {
   AppRole _role = AppRole.resident;
   int _ecoPoints = 0;
   int _totalWasteDiverted = 0;
+  int _totalCollections = 0;
   String? _address;
   bool _isOnline = false;
   double? _latitude;
@@ -30,6 +31,7 @@ class UserProvider extends ChangeNotifier {
   AppRole get role => _role;
   int get ecoPoints => _ecoPoints < 0 ? 0 : _ecoPoints;
   int get totalWasteDiverted => _totalWasteDiverted;
+  int get totalCollections => _totalCollections;
   String? get address => _address;
   bool get isOnline => _isOnline;
   bool get isCollector => _role == AppRole.collector;
@@ -73,6 +75,7 @@ class UserProvider extends ChangeNotifier {
         _userName = cachedName;
         _ecoPoints = prefs.getInt('cache_ecoPoints') ?? 0;
         _totalWasteDiverted = prefs.getInt('cache_co2') ?? 0;
+        _totalCollections = prefs.getInt('cache_collections') ?? 0;
         _role = (prefs.getString('cache_role') == 'collector') ? AppRole.collector : AppRole.resident;
         _email = prefs.getString('cache_email') ?? '';
         _phone = prefs.getString('cache_phone') ?? '';
@@ -104,6 +107,7 @@ class UserProvider extends ChangeNotifier {
         _userName = data['full_name'] ?? 'User';
         _ecoPoints = data['eco_points'] ?? 0;
         _totalWasteDiverted = (data['co2_saved'] ?? 0) is num ? (data['co2_saved'] as num).toInt() : 0;
+        _totalCollections = (data['total_collections'] ?? 0) is num ? (data['total_collections'] as num).toInt() : 0;
         final roleStr = (data['role'] as String? ?? 'resident').toLowerCase();
         _role = roleStr == 'collector' ? AppRole.collector : AppRole.resident;
 
@@ -120,6 +124,7 @@ class UserProvider extends ChangeNotifier {
         await prefs.setString('cache_userName', _userName);
         await prefs.setInt('cache_ecoPoints', _ecoPoints);
         await prefs.setInt('cache_co2', _totalWasteDiverted);
+        await prefs.setInt('cache_collections', _totalCollections);
         await prefs.setString('cache_role', _role == AppRole.collector ? 'collector' : 'resident');
         await prefs.setString('cache_email', _email);
         await prefs.setString('cache_phone', _phone);

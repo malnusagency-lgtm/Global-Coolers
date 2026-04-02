@@ -56,7 +56,7 @@ class _GlobalNotificationWrapperState extends State<GlobalNotificationWrapper> {
 
         // Has status changed?
         if (_knownStatuses.containsKey(id) && _knownStatuses[id] != currentStatus) {
-            _dispatchNotification(currentStatus, isResident, pickup);
+            _dispatchNotification(currentStatus, _knownStatuses[id]!, isResident, pickup);
         }
         
         // Initial setup and tracking
@@ -65,7 +65,7 @@ class _GlobalNotificationWrapperState extends State<GlobalNotificationWrapper> {
     });
   }
 
-  void _dispatchNotification(String status, bool isResident, Map<String, dynamic> pickup) {
+  void _dispatchNotification(String status, String previousStatus, bool isResident, Map<String, dynamic> pickup) {
     String title = '';
     String message = '';
     IconData icon = Icons.info;
@@ -94,9 +94,14 @@ class _GlobalNotificationWrapperState extends State<GlobalNotificationWrapper> {
         color = AppColors.success;
       } else if (status == 'cancelled') {
         title = 'Pickup Cancelled ❌';
-        message = 'The collector cancelled the pickup request.';
+        message = 'Your pickup has been successfully cancelled.';
         icon = Icons.cancel;
         color = Colors.red;
+      } else if (status == 'scheduled' && (previousStatus == 'accepted' || previousStatus == 'in_transit')) {
+        title = 'Collector Cancelled ❌';
+        message = 'The collector had to cancel their assignment. We are finding a new collector for you.';
+        icon = Icons.person_off_rounded;
+        color = Colors.orange;
       }
     } else { // Is Collector
        if (status == 'completed') {

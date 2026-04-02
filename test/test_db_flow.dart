@@ -4,58 +4,86 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:global_coolers/config/supabase_config.dart';
 
 void main() {
-  test('Test Auth and DB Flow', () async {
+  test('Final End-to-End Database Flow Test', () async {
+    // Note: Ensure SupabaseConfig is correctly set up with project URL and Anon Key
     final supabase = SupabaseClient(SupabaseConfig.url, SupabaseConfig.anonKey);
-    final randomEmail = 'testuser${Random().nextInt(99999)}@example.com';
-    final password = 'Password@123';
+    final randomId = Random().nextInt(99999).toString();
+    final testEmail = 'tester$randomId@globalcoolers.com';
+    final password = 'TestPassword123!';
     
-    print('1. Signing up $randomEmail');
+    print('--- STARTING GLOBAL COOLERS E2E DATABASE TEST ---');
+
     try {
-      final AuthResponse res = await supabase.auth.signUp(
-        email: randomEmail,
+      // 1. Auth Signup (Triggers handle_new_user and 500pt bonus)
+      print('1. Registering test user: $testEmail');
+      final AuthResponse authRes = await supabase.auth.signUp(
+        email: testEmail,
         password: password,
+        data: {
+          'full_name': 'Test User $randomId',
+          'role': 'resident',
+        },
       );
-      final userId = res.user?.id;
-      print('Signup Success: $userId');
+      
+      final userId = authRes.user?.id;
+      if (userId == null) throw Exception('Signup failed - No User ID');
+      print('✓ Signup Success: $userId');
 
-      if (userId == null) return;
+      // Wait a moment for trigger to complete
+      print('... waiting for database triggers ...');
+      await Future.delayed(const Duration(seconds: 2));
 
-      print('2. Inserting Profile');
-      try {
-        await supabase.from('profiles').upsert({
-          'id': userId,
-          'email': randomEmail,
-          'full_name': 'Test User',
-        });
-        print('Profile Inserted');
-      } catch (e) {
-        print('Profile Insert Error: $e');
+      // 2. Profile Verification
+      print('2. Verifying Profile & Initial Points');
+      final profile = await supabase.from('profiles').select().eq('id', userId).single();
+      print('✓ Profile Data: $profile');
+      
+      if (profile['eco_points'] != 500) {
+        throw Exception('Signup Bonus Failed: Expected 500, got ${profile['eco_points']}');
       }
+      print('✓ Signup Bonus (500 Pts) verified!');
 
-      print('3. Selecting Profile');
-      try {
-        final profile = await supabase.from('profiles').select().eq('id', userId).single();
-        print('Profile Selected: $profile');
-      } catch (e) {
-        print('Profile Select Error: $e');
-      }
+      // 3. Notification Check
+      print('3. Verifying Welcome Notification');
+      final notifications = await supabase.from('notifications').select().eq('user_id', userId);
+      print('✓ Notifications: ${notifications.length} found');
+      if (notifications.isEmpty) throw Exception('Welcome notification not found');
 
-      print('4. Scheduling Pickup');
-      try {
-        final pickup = await supabase.from('pickups').insert({
-          'user_id': userId,
-          'date': '2026-03-31 8:00 - 11:00 AM',
-          'waste_type': 'Plastic',
-          'address': 'Plot 45, Kilimani',
-          'status': 'scheduled',
-          'qr_code': 'TEST-QR-123',
-        }).select().single();
-        print('Pickup Scheduled: $pickup');
-      } catch (e) {
-        print('Pickup Schedule Error: $e');
+      // 4. Pickup Scheduling (Resolving the reported error)
+      print('4. Scheduling Pickup (Test qr_code_id and status)');
+      final pickup = await supabase.from('pickups').insert({
+        'user_id': userId,
+        'date': '2026-04-02 10:00 AM',
+        'waste_type': 'Plastic/PET',
+        'address': 'Test Avenue, Nairobi',
+        'status': 'scheduled',
+        'weight_kg': 5.5,
+        'qr_code_id': 'TEST-QR-$randomId',
+      }).select().single();
+      print('✓ Pickup Scheduled: ${pickup['id']}');
+
+      // 5. Completion Logic (Testing Point Trigger)
+      print('5. Simulating Completion (Status update trigger)');
+      await supabase.from('pickups').update({'status': 'completed'}).eq('id', pickup['id']);
+      print('✓ Pickup marked as completed');
+
+      // Wait for point increment trigger
+      await Future.delayed(const Duration(seconds: 1));
+
+      // 6. Final Point Check (500 base + 5.5kg * 10pts = 555)
+      final finalProfile = await supabase.from('profiles').select('eco_points').eq('id', userId).single();
+      print('✓ Final Points: ${finalProfile['eco_points']}');
+      
+      if ((finalProfile['eco_points'] as int) < 555) {
+        throw Exception('Point awarding trigger failed: Expected ~555, got ${finalProfile['eco_points']}');
       }
+      print('✓ Point awarding logic verified!');
+
+      print('--- TEST SUCCESS: ALL DB FLOWS FUNCTIONAL ---');
+
     } catch (e) {
-      print('Overall Error: $e');
+      print('❌ TEST FAILED: $e');
+      rethrow;
     }
   });
 }

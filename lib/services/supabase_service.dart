@@ -315,24 +315,16 @@ class SupabaseService {
     if (userId == null) throw Exception('Not logged in');
 
     try {
-      final updates = {
-        'collector_id': userId,
-        'is_assigned': true,
-      };
-      if (initialStatus != null) updates['status'] = initialStatus;
-      if (scheduledArrival != null) updates['scheduled_arrival'] = scheduledArrival;
+      final isImmediate = (initialStatus == 'in_transit');
 
-      // ATOMIC CLAIM: Only update if collector_id is still NULL
-      final response = await _supabase
-          .from('pickups')
-          .update(updates)
-          .eq('id', pickupId)
-          .filter('collector_id', 'is', null)
-          .select();
-
-      if (response.isEmpty) {
-        throw Exception('This pickup was already claimed by another collector.');
-      }
+      await _supabase.rpc(
+        'collector_claim_pickup',
+        params: {
+          'p_pickup_id': pickupId,
+          'p_is_immediate': isImmediate,
+          'p_scheduled_arrival': scheduledArrival,
+        },
+      );
     } catch (e) {
       debugPrint('Claim Pickup Error: $e');
       rethrow;
@@ -552,39 +544,17 @@ class SupabaseService {
     double? actualWeightKg,
   }) async {
     try {
-      final collectorId = _supabase.auth.currentUser?.id;
-      if (collectorId == null) throw Exception('Not logged in');
+      final weight = actualWeightKg ?? 1.0;
 
-      // 1. Fetch pickup and verify QR code
-      final pickup = await _supabase
-          .from('pickups')
-          .select('*, profiles(eco_points)')
-          .eq('id', pickupId)
-          .single();
-      
-      if (pickup['qr_code_id'] != qrCode) {
-        throw Exception('Invalid QR code. Verification failed.');
-      }
-
-      final residentUserId = pickup['user_id'];
-      final weight = actualWeightKg ?? ((pickup['weight_kg'] as num?)?.toDouble() ?? 1.0);
-      
-      // Calculate reward points (Resident: 10 pts per kg, Collector: 5 pts per kg)
-      final residentPoints = (weight * 10).toInt();
-      final collectorPoints = (weight * 5).toInt();
-
-      // 2. Mark pickup as completed and store points awarded (and actual weight if changed)
-      final updates = {
-        'status': 'completed',
-        'points_awarded': residentPoints,
-        'completed_at': DateTime.now().toIso8601String(),
-      };
-      if (actualWeightKg != null) {
-        updates['weight_kg'] = actualWeightKg;
-      }
-
-      await _supabase.from('pickups').update(updates).eq('id', pickupId);
-
+      // Let Postgres handle the verification and point generation securely!
+      await _supabase.rpc(
+        'collector_complete_pickup',
+        params: {
+          'p_pickup_id': pickupId,
+          'p_qr_code': qrCode,
+          'p_actual_weight': weight,
+        },
+      );
     } catch (e) {
       debugPrint('Complete Pickup Error: $e');
       rethrow;

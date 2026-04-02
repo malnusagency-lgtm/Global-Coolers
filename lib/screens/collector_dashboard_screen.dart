@@ -22,6 +22,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   bool _showNearbyPickups = false;
   bool _isLoadingNearby = false;
   List<dynamic> _nearbyPickups = [];
+  final Set<String> _declinedPickups = {};
   
   // Real-time Request Stream
   bool _isShowingRequest = false;
@@ -45,8 +46,12 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
     _poolSubscription = _supabaseService.streamUnassignedPickups().listen((pickups) {
       final userProvider = context.read<UserProvider>();
       if (userProvider.isOnline && pickups.isNotEmpty && !_isShowingRequest) {
-        final newRequest = pickups.first;
-        _showNewRequestOverlay(newRequest);
+        // Filter out pickups we have already declined locally
+        final availablePickups = pickups.where((p) => !_declinedPickups.contains(p['id'].toString())).toList();
+        if (availablePickups.isNotEmpty) {
+          final newRequest = availablePickups.first;
+          _showNewRequestOverlay(newRequest);
+        }
       }
     });
   }
@@ -80,6 +85,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
+                      _declinedPickups.add(pickup['id'].toString());
                       _isShowingRequest = false;
                       Navigator.pop(context);
                     },
@@ -470,15 +476,56 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               IconButton(onPressed: () => _supabaseService.launchMaps(p['latitude'], p['longitude']), icon: const Icon(Icons.directions_rounded, color: AppColors.primary)),
               IconButton(onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {'pickupId': p['id'], 'recipientName': p['profiles']?['full_name']}), icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)),
               const Spacer(),
-              if (status == 'accepted')
-                ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip'))
-              else if (status == 'in_transit')
-                ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('Verify'))
+              if (status == 'accepted') ...[
+                TextButton(
+                  onPressed: () => _cancelAssignment(p['id']),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.error)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip')),
+              ] else if (status == 'in_transit')
+                ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('I\'ve Arrived'))
+              else if (status == 'arrived')
+                ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white), child: const Text('Scan Code'))
             ],
           )
         ],
       ),
     );
+  }
+
+  Future<void> _cancelAssignment(dynamic id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+          SizedBox(width: 8),
+          Text('Cancel Assignment?'),
+        ]),
+        content: const Text('Are you sure you want to cancel this pickup? This will return it to the queue for other collectors.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, keep it')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Yes, cancel', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      )
+    );
+
+    if (confirm == true) {
+      try {
+        await _supabaseService.cancelPickupAssignment(id.toString());
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assignment cancelled.'), backgroundColor: AppColors.error));
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   void _showSchedulePicker(Map<String, dynamic> pickup) async {
@@ -497,6 +544,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Too far from pickup location.')));
       return;
     }
+    await _updateStatus(p['id'], 'arrived');
     Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()});
   }
 

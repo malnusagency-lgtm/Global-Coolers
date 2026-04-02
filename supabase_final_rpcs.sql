@@ -1,4 +1,8 @@
--- 1. claim pickup RPC
+-- 1. Drop existing functions to allow for type overrides
+DROP FUNCTION IF EXISTS public.collector_claim_pickup(UUID, BOOLEAN, TEXT);
+DROP FUNCTION IF EXISTS public.collector_complete_pickup(UUID, TEXT, FLOAT);
+
+-- 2. Secure Claim Pickup RPC
 CREATE OR REPLACE FUNCTION public.collector_claim_pickup(
     p_pickup_id UUID,
     p_is_immediate BOOLEAN,
@@ -30,13 +34,12 @@ BEGIN
     SET collector_id = v_collector_id,
         is_assigned = true,
         status = CASE WHEN p_is_immediate THEN 'in_transit' ELSE 'accepted' END,
-        scheduled_arrival = p_scheduled_arrival,
-        updated_at = NOW()
+        scheduled_arrival = p_scheduled_arrival
     WHERE id = p_pickup_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. complete pickup RPC
+-- 3. Secure Complete Pickup RPC
 CREATE OR REPLACE FUNCTION public.collector_complete_pickup(
     p_pickup_id UUID,
     p_qr_code TEXT,

@@ -43,15 +43,31 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   }
 
   void _initPoolStream() {
-    _poolSubscription = _supabaseService.streamUnassignedPickups().listen((pickups) {
+    _poolSubscription = _supabaseService.streamUnassignedPickups().listen((pickups) async {
       final userProvider = context.read<UserProvider>();
-      if (userProvider.isOnline && pickups.isNotEmpty && !_isShowingRequest) {
-        // Filter out pickups we have already declined locally
-        final availablePickups = pickups.where((p) => !_declinedPickups.contains(p['id'].toString())).toList();
-        if (availablePickups.isNotEmpty) {
-          final newRequest = availablePickups.first;
-          _showNewRequestOverlay(newRequest);
+      if (!userProvider.isOnline || pickups.isEmpty || _isShowingRequest) return;
+
+      final pos = await _supabaseService.getCurrentPosition();
+      if (pos == null) return;
+
+      final distance = const Distance();
+      final myPoint = LatLng(pos.latitude, pos.longitude);
+
+      // Filter out declined pickups and anything > 25km away
+      final availablePickups = pickups.where((p) {
+        if (_declinedPickups.contains(p['id'].toString())) return false;
+        
+        if (p['latitude'] != null && p['longitude'] != null) {
+          final pickupPoint = LatLng((p['latitude'] as num).toDouble(), (p['longitude'] as num).toDouble());
+          final d = distance.as(LengthUnit.Kilometer, myPoint, pickupPoint);
+          if (d > 25.0) return false;
         }
+        return true;
+      }).toList();
+
+      if (availablePickups.isNotEmpty && mounted && !_isShowingRequest) {
+        final newRequest = availablePickups.first;
+        _showNewRequestOverlay(newRequest);
       }
     });
   }

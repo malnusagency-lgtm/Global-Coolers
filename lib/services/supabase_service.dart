@@ -264,7 +264,7 @@ class SupabaseService {
   }
 
   /// Get nearby scheduled pickups (unassigned OR assigned to me) for collectors
-  Future<List<Map<String, dynamic>>> getUnassignedPickupsNearby(double lat, double lng, {double radiusKm = 15}) async {
+  Future<List<Map<String, dynamic>>> getUnassignedPickupsNearby(double lat, double lng, {double radiusKm = 25.0}) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       final response = await _supabase

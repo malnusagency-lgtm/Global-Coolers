@@ -94,17 +94,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: Container(
                   width: 180,
                   height: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.12),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                  ),
                   padding: const EdgeInsets.all(32),
                   child: Image.asset('assets/images/leaf_logo.png', fit: BoxFit.contain),
                 ),

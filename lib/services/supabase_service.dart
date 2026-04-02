@@ -132,8 +132,8 @@ class SupabaseService {
     try {
       final response = await _supabase
           .from('pickups')
-          .select()
-          .eq('user_id', userId)
+          .select('*, profiles(full_name)')
+          .or('user_id.eq.$userId,collector_id.eq.$userId')
           .order('created_at', ascending: false);
       return response as List<dynamic>;
     } catch (e) {

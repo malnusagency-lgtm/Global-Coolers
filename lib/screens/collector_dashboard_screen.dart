@@ -249,7 +249,9 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
         currentIndex: _currentNavIndex,
         role: UserRole.collector,
         onTap: (index) {
-          if (index == 2) {
+          if (index == 1) {
+             Navigator.pushNamed(context, '/pickup-history');
+          } else if (index == 2) {
              Navigator.pushNamed(context, '/rewards');
           } else if (index == 3) {
              Navigator.pushNamed(context, '/profile');

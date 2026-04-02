@@ -29,19 +29,24 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
         ),
         title: const Text('Notification Center'),
         centerTitle: true,
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _supabaseService.markAllNotificationsRead();
+              setState(() {});
+            },
+            child: const Text('Clear All', style: TextStyle(color: AppColors.primary, fontSize: 12)),
+          ),
+        ],
       ),
-      body: FutureBuilder<List<dynamic>>(
-        // Both roles benefit from seeing their pickups/assignments history
-        future: userProvider.isCollector 
-            ? _supabaseService.getPendingPickups() 
-            : _supabaseService.getPickups(),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _supabaseService.getNotifications(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           
-          final data = snapshot.data ?? [];
-          final notifications = _generateNotifications(data, userProvider);
+          final notifications = snapshot.data ?? [];
 
           return Column(
             children: [
@@ -54,17 +59,34 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                       itemCount: notifications.length,
                       itemBuilder: (context, index) {
                         final n = notifications[index];
-                        if (_selectedCategory != 'All' && n.category != _selectedCategory) return const SizedBox.shrink();
+                        final typeStr = n['type'] ?? 'info';
+                        
+                        // Map database types to enum
+                        NotificationType type;
+                        switch (typeStr) {
+                          case 'success': type = NotificationType.success; break;
+                          case 'warning': type = NotificationType.activity; break;
+                          case 'error': type = NotificationType.alert; break;
+                          default: type = NotificationType.info;
+                        }
+
+                        // Category filter
+                        final category = _getCategoryFromType(typeStr);
+                        if (_selectedCategory != 'All' && category != _selectedCategory) return const SizedBox.shrink();
                         
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: NotificationCard(
-                            title: n.title,
-                            message: n.message,
-                            time: n.timeFormatted,
-                            icon: n.icon,
-                            color: n.color,
-                            type: n.type,
+                            title: n['title'] ?? 'Global Coolers',
+                            message: n['message'] ?? '',
+                            time: _formatTime(n['created_at']),
+                            type: type,
+                            onTap: () {
+                              if (!(n['is_read'] ?? false)) {
+                                _supabaseService.markNotificationRead(n['id'].toString());
+                                setState(() {});
+                              }
+                            },
                           ),
                         );
                       },
@@ -77,95 +99,24 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     );
   }
 
-  List<_NotificationData> _generateNotifications(List<dynamic> data, UserProvider user) {
-    List<_NotificationData> list = [];
+  String _getCategoryFromType(String type) {
+    if (type == 'success' || type == 'warning') return 'Activity';
+    return 'System';
+  }
 
-    // System welcome notification
-    list.add(_NotificationData(
-      title: 'Welcome to Global Coolers',
-      message: user.isCollector 
-          ? 'You are now a verified collector. Go online to start receiving waste pickup assignments!' 
-          : 'Thank you for joining the green movement! Your first 500 EcoPoints have been added.',
-      timestamp: DateTime.now().subtract(const Duration(days: 7)),
-      icon: Icons.celebration,
-      color: AppColors.primary,
-      category: 'System',
-      type: NotificationType.system,
-    ));
-
-    for (var item in data) {
-      final status = item['status'];
-      final wasteType = item['waste_type'];
-      final isResident = !user.isCollector;
-      
-      DateTime eventTime;
-      try {
-        eventTime = DateTime.parse(item['created_at'] ?? DateTime.now().toIso8601String());
-      } catch (e) {
-        eventTime = DateTime.now();
-      }
-
-      if (isResident) {
-        if (status == 'scheduled') {
-          list.add(_NotificationData(
-            title: 'Pickup Scheduled 🚛',
-            message: 'Your $wasteType pickup is scheduled for ${item['date'] ?? 'upcoming'}.',
-            timestamp: eventTime,
-            icon: Icons.schedule,
-            color: AppColors.info,
-            category: 'Activity',
-            type: NotificationType.activity,
-          ));
-        } else if (status == 'in_transit') {
-          list.add(_NotificationData(
-             title: 'Driver on the Way! 📍',
-             message: 'A collector has accepted your immediate request.',
-             timestamp: eventTime.add(const Duration(minutes: 5)),
-             icon: Icons.local_shipping,
-             color: Colors.orange,
-             category: 'Activity',
-             type: NotificationType.activity,
-          ));
-        } else if (status == 'accepted') {
-          list.add(_NotificationData(
-             title: 'Collector Confirmed',
-             message: 'Collector agreed to arrive at ${item['scheduled_arrival'] ?? 'soon'}.',
-             timestamp: eventTime.add(const Duration(minutes: 5)),
-             icon: Icons.handshake,
-             color: AppColors.primary,
-             category: 'Activity',
-             type: NotificationType.activity,
-          ));
-        } else if (status == 'completed') {
-          list.add(_NotificationData(
-            title: 'Waste Collected! 🎉',
-            message: 'Successfully recycled your $wasteType waste. EcoPoints have been credited.',
-            timestamp: eventTime.add(const Duration(hours: 1)),
-            icon: Icons.check_circle,
-            color: AppColors.success,
-            category: 'Activity',
-            type: NotificationType.success,
-          ));
-        }
-      } else {
-        // Collector notifications
-        if (status == 'scheduled' || status == 'accepted' || status == 'in_transit') {
-          list.add(_NotificationData(
-            title: 'New Assignment 📍',
-            message: 'A new $wasteType pickup at ${item['address']} has been assigned to you.',
-            timestamp: eventTime,
-            icon: Icons.local_shipping,
-            color: AppColors.warning,
-            category: 'Activity',
-            type: NotificationType.activity,
-          ));
-        }
-      }
+  String _formatTime(dynamic timestamp) {
+    if (timestamp == null) return 'Now';
+    try {
+      final time = DateTime.parse(timestamp.toString());
+      final diff = DateTime.now().difference(time);
+      if (diff.inDays > 7) return '${time.day}/${time.month}/${time.year}';
+      if (diff.inDays > 0) return '${diff.inDays}d ago';
+      if (diff.inHours > 0) return '${diff.inHours}h ago';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+      return 'Just now';
+    } catch (_) {
+      return 'Today';
     }
-
-    // Sort descending by time
-    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return list;
   }
 
   Widget _buildCategoryTabs() {
@@ -203,33 +154,4 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       ),
     );
   }
-}
-
-class _NotificationData {
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  final IconData icon;
-  final Color color;
-  final String category;
-  final NotificationType type;
-
-  String get timeFormatted {
-    final diff = DateTime.now().difference(timestamp);
-    if (diff.inDays > 7) return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
-    if (diff.inDays > 0) return '${diff.inDays} days ago';
-    if (diff.inHours > 0) return '${diff.inHours} hrs ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes} mins ago';
-    return 'Just now';
-  }
-
-  _NotificationData({
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    required this.icon,
-    required this.color,
-    required this.category,
-    required this.type,
-  });
 }

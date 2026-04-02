@@ -171,8 +171,19 @@ class SupabaseService {
     if (user == null) throw Exception('User not logged in');
 
     try {
-      // 1. Verify user is a resident
-      final profile = await getProfile();
+      // 1. Verify profile exists (Retry if it was just created by trigger)
+      Map<String, dynamic>? profile;
+      for (int i = 0; i < 3; i++) {
+        try {
+          profile = await getProfile();
+          break;
+        } catch (_) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      
+      if (profile == null) throw Exception('User profile not found. Please try again.');
+      
       if (profile['role'] != 'resident') {
         throw Exception('Access denied: Only households can schedule pickups.');
       }
@@ -197,7 +208,7 @@ class SupabaseService {
         'is_immediate': isImmediate,
         'weight_kg': weightKg,
         'cost_kes': costKes,
-        'qr_code_id': qrCode, // Standardized QR field
+        'qr_code_id': qrCode, 
       }).select().single();
 
       return response;
@@ -253,7 +264,7 @@ class SupabaseService {
   }
 
   /// Get nearby scheduled pickups (unassigned OR assigned to me) for collectors
-  Future<List<Map<String, dynamic>>> getNearbyScheduledPickups(double lat, double lng, {double radiusKm = 15}) async {
+  Future<List<Map<String, dynamic>>> getUnassignedPickupsNearby(double lat, double lng, {double radiusKm = 15}) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       final response = await _supabase
@@ -441,6 +452,45 @@ class SupabaseService {
   }
 
   // ──────────────────────────────────────────────
+  //  NOTIFICATIONS
+  // ──────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    try {
+      final response = await _supabase
+          .from('notifications')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Get Notifications Error: $e');
+      return [];
+    }
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    try {
+      await _supabase.from('notifications').update({'is_read': true}).eq('id', id);
+    } catch (e) {
+      debugPrint('Mark Read Error: $e');
+    }
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await _supabase.from('notifications').update({'is_read': true}).eq('user_id', userId);
+    } catch (e) {
+      debugPrint('Mark All Read Error: $e');
+    }
+  }
+
+  // ──────────────────────────────────────────────
   //  REDEMPTION
   // ──────────────────────────────────────────────
 
@@ -534,29 +584,6 @@ class SupabaseService {
       }
 
       await _supabase.from('pickups').update(updates).eq('id', pickupId);
-
-      // 3. Award points to the Resident (Atomic increment)
-      await _supabase.rpc('increment_points', params: {
-        'user_id': residentUserId,
-        'amount': residentPoints,
-      }).catchError((_) async {
-        // Fallback if RPC isn't available
-        final res = await _supabase.from('profiles').select('eco_points').eq('id', residentUserId).single();
-        await _supabase.from('profiles').update({
-          'eco_points': (res['eco_points'] as int) + residentPoints,
-        }).eq('id', residentUserId);
-      });
-
-      // 4. Award points to the Collector (Atomic increment)
-      await _supabase.rpc('increment_points', params: {
-        'user_id': collectorId,
-        'amount': collectorPoints,
-      }).catchError((_) async {
-        final res = await _supabase.from('profiles').select('eco_points').eq('id', collectorId).single();
-        await _supabase.from('profiles').update({
-          'eco_points': (res['eco_points'] as int) + collectorPoints,
-        }).eq('id', collectorId);
-      });
 
     } catch (e) {
       debugPrint('Complete Pickup Error: $e');

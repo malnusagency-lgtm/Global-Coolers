@@ -102,7 +102,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                   child: OutlinedButton(
                     onPressed: () {
                       _declinedPickups.add(pickup['id'].toString());
-                      _isShowingRequest = false;
                       Navigator.pop(context);
                     },
                     style: OutlinedButton.styleFrom(
@@ -116,7 +115,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      _isShowingRequest = false;
                       Navigator.pop(context);
                       await _handleClaim(pickup);
                     },
@@ -137,7 +135,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               width: double.infinity,
               child: TextButton.icon(
                 onPressed: () async {
-                  _isShowingRequest = false;
                   Navigator.pop(context);
                   _showSchedulePicker(pickup);
                 },
@@ -151,7 +148,10 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
           ],
         ),
       ),
-    );
+    ).whenComplete(() {
+      // ✅ Always reset flag when sheet closes, regardless of how it closed
+      if (mounted) _isShowingRequest = false;
+    });
   }
 
   Future<void> _handleClaim(Map<String, dynamic> pickup, {String? arrivalTime}) async {
@@ -238,6 +238,26 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                 _buildStatusBanner(userProvider),
                 const SizedBox(height: 20),
                 _buildStatsSection(userProvider),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/collector-earnings'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.indigo.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.indigo.withOpacity(0.15)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bar_chart_rounded, color: AppColors.indigo, size: 18),
+                        SizedBox(width: 8),
+                        Text('View Detailed Earnings Report →', style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 if (userProvider.isOnline) _buildFindNearbyButton(),
                 if (_showNearbyPickups && userProvider.isOnline) ...[
@@ -561,11 +581,27 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   Future<void> _checkArrival(Map<String, dynamic> p) async {
     final arrived = await _supabaseService.isNearLocation(p['latitude'], p['longitude']);
     if (!arrived) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Too far from pickup location.')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are too far from the pickup location to mark as arrived.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
+    // ✅ Fixed: Just update status and refresh. DO NOT auto-push QR scanner.
+    // Resident needs to receive the "Arrived" notification first before showing QR.
     await _updateStatus(p['id'], 'arrived');
-    Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Resident has been notified you arrived! Tap "Scan Code" when they show you the QR.'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   Widget _buildStatusBadge(String status) {

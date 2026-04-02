@@ -369,17 +369,29 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
+                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        Navigator.pop(context); // Back to dashboard
+                        // ✅ Navigate to real completion screen with actual data
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/pickup-complete',
+                          arguments: {
+                            'residentName': residentName,
+                            'wasteType': wasteType,
+                            'collectorPoints': pointsAwarded,
+                            'residentPoints': residentPoints,
+                            'weightKg': weightKg,
+                            'costKes': costKes,
+                          },
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: const Text('View Results →', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

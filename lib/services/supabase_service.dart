@@ -743,6 +743,25 @@ class SupabaseService {
         .map((list) => list.where((p) => p['collector_id'] == null).toList());
   }
 
+  /// Streams the resident's latest active pickup with collector info for the home screen tracker
+  Stream<Map<String, dynamic>?> streamActivePickupForResident() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return const Stream.empty();
+
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((list) {
+          final activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
+          if (active.isEmpty) return null;
+          // Most recent first
+          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+          return active.first as Map<String, dynamic>;
+        });
+  }
+
   Future<void> launchMaps(double lat, double lng) async {
     final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
     if (await canLaunchUrl(url)) {

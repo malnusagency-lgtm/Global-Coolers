@@ -24,12 +24,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final userProvider = context.read<UserProvider>();
     
     if (userProvider.isCollector) {
-      if (index == 0) Navigator.pushNamed(context, '/collector-dashboard');
-      if (index == 2) Navigator.pushNamed(context, '/profile');
+      if (index == 0) Navigator.pushReplacementNamed(context, '/collector-dashboard');
+      if (index == 1) Navigator.pushNamed(context, '/pickup-history'); // ✅ Fixed: was /profile
+      if (index == 2) Navigator.pushNamed(context, '/rewards');
+      // index == 3 is profile (current screen), do nothing
     } else {
-      if (index == 0) Navigator.pushNamed(context, '/home');
+      if (index == 0) Navigator.pushReplacementNamed(context, '/home');
       if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
       if (index == 2) Navigator.pushNamed(context, '/rewards');
+      // index == 3 is profile (current screen), do nothing
     }
   }
 

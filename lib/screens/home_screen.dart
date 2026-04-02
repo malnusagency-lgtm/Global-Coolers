@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -19,6 +20,28 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final SupabaseService _supabaseService = SupabaseService();
+  Map<String, dynamic>? _activePickup;
+  StreamSubscription? _pickupSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeToActivePickup();
+  }
+
+  @override
+  void dispose() {
+    _pickupSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToActivePickup() {
+    _pickupSubscription = _supabaseService
+        .streamActivePickupForResident()
+        .listen((pickup) {
+      if (mounted) setState(() => _activePickup = pickup);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   co2Saved: userProvider.totalWasteDiverted * 0.8,
                   onTap: () => Navigator.pushNamed(context, '/impact-stats'),
                 ),
+                if (_activePickup != null) ...[
+                  const SizedBox(height: 20),
+                  _buildActivePickupTracker(_activePickup!),
+                ],
                 const SizedBox(height: 28),
                 _buildStreakCard(),
                 const SizedBox(height: 28),
@@ -205,15 +232,96 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Active Pickup Real-time Tracker ──
+
+  Widget _buildActivePickupTracker(Map<String, dynamic> pickup) {
+    final status = pickup['status'] as String? ?? 'scheduled';
+    final collectorName = pickup['collector_name'] as String? ?? 'A collector';
+
+    String title, subtitle, emoji;
+    Color color;
+    IconData icon;
+
+    switch (status) {
+      case 'accepted':
+        title = 'Pickup Accepted! ✅';
+        subtitle = '$collectorName has agreed to collect your waste.';
+        emoji = '📅'; color = AppColors.info; icon = Icons.check_circle_rounded;
+        break;
+      case 'in_transit':
+        title = 'Collector is on the way! 🚛';
+        subtitle = '$collectorName is heading to your location. Get your waste ready!';
+        emoji = '🚛'; color = AppColors.primary; icon = Icons.local_shipping_rounded;
+        break;
+      case 'arrived':
+        title = 'Collector has ARRIVED! 📍';
+        subtitle = '$collectorName is at your door. Show your QR code now!';
+        emoji = '📍'; color = AppColors.success; icon = Icons.location_on_rounded;
+        break;
+      default:
+        title = 'Finding a Collector... 📡';
+        subtitle = 'We are broadcasting your request to nearby collectors.';
+        emoji = '📡'; color = AppColors.amber; icon = Icons.radar_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.12), color.withOpacity(0.04)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50, height: 50,
+            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+                const SizedBox(height: 3),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), maxLines: 2),
+              ],
+            ),
+          ),
+          if (status == 'arrived')
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/pickup-history'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Show QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   // ── Scheduled Pickups with Cancel ──
 
   Widget _buildScheduledPickups(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: _supabaseService.getPickups(),
       builder: (context, snapshot) {
+        final activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
         final scheduled = (snapshot.data ?? [])
             .cast<Map<String, dynamic>?>()
-            .where((p) => p?['status'] == 'scheduled')
+            .where((p) => activeStatuses.contains(p?['status']))
             .toList();
 
         if (scheduled.isEmpty) return const SizedBox.shrink();
@@ -224,8 +332,8 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Scheduled Pickups', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                Text('${scheduled.length} active', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                const Text('Active Pickups', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('${scheduled.length} active', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 12),
@@ -281,6 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (pickup['cost_kes'] != null && (pickup['cost_kes'] as num) > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    margin: const EdgeInsets.only(right: 6),
                     decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
                     child: Text('KES ${pickup['cost_kes']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
                   ),
@@ -291,38 +400,52 @@ class _HomeScreenState extends State<HomeScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('Scheduled', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
-              ),
+              _buildStatusChip(pickup['status'] ?? 'scheduled'),
               const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () => _showCancelDialog(pickup),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.close_rounded, size: 13, color: AppColors.error),
-                      const SizedBox(width: 3),
-                      Text('Cancel', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 11)),
-                    ],
+              if ((pickup['status'] ?? 'scheduled') == 'scheduled')
+                GestureDetector(
+                  onTap: () => _showCancelDialog(pickup),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.close_rounded, size: 13, color: AppColors.error),
+                        const SizedBox(width: 3),
+                        Text('Cancel', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 11)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+    switch (status) {
+      case 'accepted':
+        color = AppColors.info; label = 'Accepted'; break;
+      case 'in_transit':
+        color = AppColors.primary; label = 'En Route'; break;
+      case 'arrived':
+        color = AppColors.success; label = 'Arrived!'; break;
+      default:
+        color = AppColors.amber; label = 'Pending'; break;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 

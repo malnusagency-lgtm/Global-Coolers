@@ -52,10 +52,17 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: 2,
+        role: userProvider.isCollector ? UserRole.collector : UserRole.resident,
         onTap: (index) {
-          if (index == 0) Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-          if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
-          if (index == 3) Navigator.pushNamed(context, '/profile');
+          if (userProvider.isCollector) {
+            if (index == 0) Navigator.pushReplacementNamed(context, '/collector-dashboard');
+            if (index == 1) Navigator.pushNamed(context, '/pickup-history');
+            if (index == 3) Navigator.pushNamed(context, '/profile');
+          } else {
+            if (index == 0) Navigator.pushReplacementNamed(context, '/home');
+            if (index == 1) Navigator.pushNamed(context, '/pickup-history');
+            if (index == 3) Navigator.pushNamed(context, '/profile');
+          }
         },
       ),
     );

@@ -234,17 +234,18 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
                     child: Row(
                       children: rewards.map((reward) {
+                        final int costVal = (reward['points_cost'] ?? 0) is int ? reward['points_cost'] : (reward['points_cost'] as num).toInt();
                         return RewardItem(
                           title: reward['title'],
                           subtitle: reward['partner'] ?? 'Global Coolers',
-                          points: reward['cost'],
+                          points: costVal,
                           imageAsset: '',
                           imageUrl: reward['image_url'],
                           iconName: reward['image_url'] == null ? reward['icon_name'] : null,
                           colorHex: reward['color_hex'],
                           onRedeem: () async {
                             final success = await userProvider.redeemReward(
-                              reward['cost'] as int,
+                              costVal,
                               rewardId: reward['id'].toString(), // Adjust based on schema
                             );
                             if (success && context.mounted) {

@@ -783,7 +783,7 @@ class SupabaseService {
         .from('rewards')
         .select()
         .eq('is_active', true)
-        .order('cost', ascending: true);
+        .order('points_cost', ascending: true);
     return List<Map<String, dynamic>>.from(response);
   }
 

@@ -67,6 +67,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
       if (availablePickups.isNotEmpty && mounted && !_isShowingRequest) {
         final newRequest = availablePickups.first;
+        _isShowingRequest = true; // SET IMMEDIATELY TO PREVENT DUPLICATES
         _showNewRequestOverlay(newRequest);
       }
     });
@@ -74,7 +75,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
   void _showNewRequestOverlay(Map<String, dynamic> pickup) {
     if (!mounted) return;
-    _isShowingRequest = true;
     
     showModalBottomSheet(
       context: context,
@@ -82,36 +82,72 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
+          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, spreadRadius: 5)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 24),
-            const Text('New Collection Request!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Text('A resident near you has requested a ${pickup['waste_type']} pickup.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 24),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.local_shipping_rounded, color: AppColors.primary, size: 30),
+            ),
+            const SizedBox(height: 20),
+            const Text('New Request Available!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+            const SizedBox(height: 8),
+            Text(
+              'A resident near you needs a ${pickup['waste_type']} collection.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            ),
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                   const Icon(Icons.location_on_rounded, color: AppColors.error, size: 20),
+                   const SizedBox(width: 12),
+                   Expanded(
+                     child: Text(
+                       pickup['address'] ?? 'Nearby Location',
+                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                       maxLines: 1,
+                       overflow: TextOverflow.ellipsis,
+                     ),
+                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: TextButton(
                     onPressed: () {
                       _declinedPickups.add(pickup['id'].toString());
                       Navigator.pop(context);
                     },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     ),
-                    child: const Text('Decline'),
+                    child: const Text('Decline', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
@@ -121,29 +157,23 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      elevation: 8,
+                      shadowColor: AppColors.primary.withOpacity(0.4),
                     ),
-                    child: const Text('Accept Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Accept & Start', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  _showSchedulePicker(pickup);
-                },
-                icon: const Icon(Icons.calendar_month_rounded, size: 18),
-                label: const Text('Respond by Scheduling'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
-                ),
-              ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                _showSchedulePicker(pickup);
+              },
+              child: const Text('Schedule for Later', style: TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
@@ -164,9 +194,11 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pickup claimed! ΓÇô It\'s now in your tasks.'), backgroundColor: AppColors.success),
+          const SnackBar(content: Text('Pickup claimed! 🎉 It\'s now in your tasks.'), backgroundColor: AppColors.success),
         );
-        setState(() {}); // Refresh the assigned list
+        // Refresh everything
+        _loadNearbyPickups(); 
+        setState(() {}); 
       }
     } catch (e) {
       if (mounted) {

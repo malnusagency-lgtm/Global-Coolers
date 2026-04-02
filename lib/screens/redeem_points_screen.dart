@@ -203,7 +203,8 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
             itemCount: rewards.length,
             itemBuilder: (context, index) {
               final r = rewards[index];
-              return _buildRewardCard(r['id'].toString(), r['title'], r['partner'], r['cost'], user.ecoPoints >= r['cost']);
+              final int costVal = (r['points_cost'] ?? 0) is int ? r['points_cost'] : (r['points_cost'] as num).toInt();
+              return _buildRewardCard(r['id'].toString(), r['title'], r['partner'], costVal, user.ecoPoints >= costVal);
             },
           );
         },

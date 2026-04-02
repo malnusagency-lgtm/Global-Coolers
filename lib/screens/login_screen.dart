@@ -249,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     padding: const EdgeInsets.all(16),
-                    child: Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
+                    child: Image.asset('assets/images/leaf_logo.png', fit: BoxFit.contain),
                   ),
                 ),
 

@@ -75,7 +75,7 @@ class LandingScreen extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Image.asset('assets/images/app_logo.png', height: 18),
+                              Image.asset('assets/images/leaf_logo.png', height: 18),
                               const SizedBox(width: 10),
                               const Text(
                                 'GLOBAL COOLERS',

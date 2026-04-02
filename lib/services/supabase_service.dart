@@ -789,6 +789,20 @@ class SupabaseService {
   }
 
   // ──────────────────────────────────────────────
+  //  REWARDS
+  // ──────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getRewards() async {
+    final response = await _supabase
+        .from('rewards')
+        .select()
+        .eq('is_active', true)
+        .order('cost', ascending: true);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+
+  // ──────────────────────────────────────────────
   //  RATINGS & REVIEWS
   // ──────────────────────────────────────────────
 

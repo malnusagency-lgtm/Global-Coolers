@@ -98,9 +98,16 @@ class _HomeScreenState extends State<HomeScreen> {
         role: userProvider.isCollector ? UserRole.collector : UserRole.resident,
         onTap: (index) {
           setState(() => _currentIndex = index);
-          if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
-          if (index == 2) Navigator.pushNamed(context, '/rewards');
-          if (index == 3) Navigator.pushNamed(context, '/profile');
+          if (userProvider.isCollector) {
+            if (index == 0) Navigator.pushReplacementNamed(context, '/collector-dashboard');
+            if (index == 1) Navigator.pushNamed(context, '/pickup-history');
+            if (index == 2) Navigator.pushNamed(context, '/rewards');
+            if (index == 3) Navigator.pushNamed(context, '/profile');
+          } else {
+            if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
+            if (index == 2) Navigator.pushNamed(context, '/rewards');
+            if (index == 3) Navigator.pushNamed(context, '/profile');
+          }
         },
       ),
 

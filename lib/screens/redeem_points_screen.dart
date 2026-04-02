@@ -60,7 +60,7 @@ class _RedeemPointsScreenState extends State<RedeemPointsScreen> {
             if (index == 3) Navigator.pushNamed(context, '/profile');
           } else {
             if (index == 0) Navigator.pushReplacementNamed(context, '/home');
-            if (index == 1) Navigator.pushNamed(context, '/pickup-history');
+            if (index == 1) Navigator.pushNamed(context, '/schedule-pickup'); // ✅ Schedule tab for residents
             if (index == 3) Navigator.pushNamed(context, '/profile');
           }
         },

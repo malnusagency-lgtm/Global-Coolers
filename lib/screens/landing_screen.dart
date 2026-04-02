@@ -19,20 +19,34 @@ class LandingScreen extends StatelessWidget {
           children: [
             // Hero Section
             Container(
-              height: size.height * 0.6,
+              height: size.height * 0.65,
               width: double.infinity,
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage('assets/images/landing_bg.jpeg'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black54,
-                    BlendMode.darken,
-                  ),
-                ),
-              ),
               child: Stack(
                 children: [
+                  // Real Background Image
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/landing_bg.jpeg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(color: AppColors.primaryDark),
+                    ),
+                  ),
+                  // Gradient Overlay for readability
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.3),
+                            const Color(0xFF1A2E1A).withOpacity(0.9),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
                   Positioned(
                     top: 16,
                     right: 16,
@@ -64,26 +78,27 @@ class LandingScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 60),
                         // New Branded Header
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Image.asset('assets/images/leaf_logo.png', height: 18),
+                              Image.asset('assets/images/leaf_logo.png', height: 22),
                               const SizedBox(width: 10),
                               const Text(
                                 'GLOBAL COOLERS',
                                 style: TextStyle(
-                                  color: AppColors.primary,
+                                  color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 2,
+                                  letterSpacing: 2.5,
                                 ),
                               ),
                             ],
@@ -103,30 +118,32 @@ class LandingScreen extends StatelessWidget {
                         Text(
                           l10n.translate('landing_subtitle'),
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withOpacity(0.85),
                             fontSize: 16,
                             height: 1.5,
                           ),
                         ),
                         const SizedBox(height: 40),
                         SizedBox(
-                          width: 200,
-                          height: 56,
+                          width: double.infinity,
+                          height: 60,
                           child: ElevatedButton(
                             onPressed: () => Navigator.pushNamed(context, '/create-account'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              elevation: 0,
+                              elevation: 8,
+                              shadowColor: AppColors.primary.withOpacity(0.4),
                             ),
                             child: Text(
                               l10n.translate('get_started'),
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),

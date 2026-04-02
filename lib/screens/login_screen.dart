@@ -235,21 +235,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Logo
                 Center(
                   child: Container(
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.2),
-                          blurRadius: 20,
+                          color: AppColors.primary.withOpacity(0.15),
+                          blurRadius: 25,
                           offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Image.asset('assets/images/leaf_logo.png', fit: BoxFit.contain),
+                    padding: const EdgeInsets.all(20),
+                    child: Image.asset('assets/images/app_logo.png', fit: BoxFit.contain),
                   ),
                 ),
 

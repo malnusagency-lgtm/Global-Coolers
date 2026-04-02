@@ -23,8 +23,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
     
     if (userProvider.isCollector) {
       if (index == 0) Navigator.pushNamed(context, '/collector-dashboard');
-      if (index == 2) Navigator.pushNamed(context, '/profile');
-      // History (index 1) can stay or be implemented
+      if (index == 1) Navigator.pushNamed(context, '/pickup-history'); // History screen
+      if (index == 3) Navigator.pushNamed(context, '/profile');
     } else {
       if (index == 0) Navigator.pushNamed(context, '/home');
       if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');

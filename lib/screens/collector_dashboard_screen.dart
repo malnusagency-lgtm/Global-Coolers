@@ -519,8 +519,10 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       try {
         await _supabaseService.cancelPickupAssignment(id.toString());
         if (mounted) {
+          _declinedPickups.add(id.toString()); // Local persistence skip
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assignment cancelled.'), backgroundColor: AppColors.error));
+          if (_showNearbyPickups) _loadNearbyPickups();
         }
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));

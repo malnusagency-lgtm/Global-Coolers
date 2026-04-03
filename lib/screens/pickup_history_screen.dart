@@ -263,20 +263,39 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(statusIcon, size: 13, color: statusColor),
-                  const SizedBox(width: 4),
-                  Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 13, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                if (status == 'scheduled' || status == 'accepted') ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => _showCancelDialog(pickup),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
           ],
         ),
@@ -294,5 +313,40 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
 
   void _showPickupDetail(Map<String, dynamic> pickup) {
     Navigator.pushNamed(context, '/pickup-detail', arguments: pickup);
+  }
+
+  Future<void> _showCancelDialog(Map<String, dynamic> pickup) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Cancel Pickup?'),
+        content: const Text('Are you sure you want to cancel this pickup request? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, Keep It')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, elevation: 0),
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final result = await _supabaseService.residentCancelPickup(pickup['id']);
+        if (result['success'] == true) {
+          if (mounted) {
+            setState(() {}); // Refresh the list
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup cancelled successfully'), backgroundColor: AppColors.success));
+          }
+        } else {
+          throw Exception(result['message'] ?? 'Failed to cancel');
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 }

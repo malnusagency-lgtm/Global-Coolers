@@ -280,6 +280,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final status = pickup['status'] as String? ?? 'scheduled';
     final collectorName = pickup['collector_name'] as String? ?? 'A collector';
 
+    final dateStr = pickup['date'] as String? ?? '';
+    final isImmediate = dateStr.startsWith('NOW:');
+
+    // Hide tracker for non-immediate scheduled requests
+    if (status == 'scheduled' && !isImmediate) {
+      return const SizedBox.shrink();
+    }
+
     String title, subtitle, emoji;
     Color color;
     IconData icon;
@@ -340,13 +348,14 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           Column(
             children: [
-              IconButton(
-                onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {
-                  'pickupId': pickup['id'], 
-                  'recipientName': collectorName,
-                }), 
-                icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)
-              ),
+              if (pickup['collector_id'] != null)
+                IconButton(
+                  onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {
+                    'pickupId': pickup['id'], 
+                    'recipientName': collectorName,
+                  }), 
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)
+                ),
               if (status == 'arrived')
                 ElevatedButton(
                   onPressed: () => Navigator.pushNamed(context, '/pickup-history'),
@@ -471,11 +480,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 8),
+            const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _buildStatusChip(pickup['status'] ?? 'scheduled'),
                 const SizedBox(height: 6),
+                if (pickup['collector_id'] != null)
+                  IconButton(
+                    onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {
+                      'pickupId': pickup['id'],
+                      'recipientName': pickup['collector_name'] ?? 'A collector',
+                    }),
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                const SizedBox(height: 4),
                 if ((pickup['status'] ?? 'scheduled') == 'scheduled' || (pickup['status'] ?? 'scheduled') == 'accepted')
                   GestureDetector(
                     onTap: () => _showCancelDialog(pickup),

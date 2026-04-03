@@ -152,10 +152,10 @@ class SupabaseService {
       final response = await _supabase.rpc('resident_schedule_pickup', params: {
         'p_waste_type': wasteType,
         'p_address': address,
-        'p_latitude': latitude,
-        'p_longitude': longitude,
+        'p_lat': latitude,
+        'p_lng': longitude,
         'p_date': date,
-        'p_qr_code_id': qrCodeId,
+        'p_qr': qrCodeId,
       });
 
       if (response != null && response['success'] == true) {

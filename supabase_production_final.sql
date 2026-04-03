@@ -126,7 +126,44 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. RESIDENT: CANCEL PICKUP
+-- 5. RESIDENT: SCHEDULE PICKUP
+CREATE OR REPLACE FUNCTION public.resident_schedule_pickup(
+    p_waste_type TEXT,
+    p_address TEXT,
+    p_lat DOUBLE PRECISION,
+    p_lng DOUBLE PRECISION,
+    p_date TEXT,
+    p_qr TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+    v_resident_id UUID := auth.uid();
+    v_pickup_id UUID;
+BEGIN
+    IF v_resident_id IS NULL THEN
+        RETURN json_build_object('success', false, 'message', 'Not logged in');
+    END IF;
+
+    -- Only 1 active request per resident
+    IF EXISTS (
+        SELECT 1 FROM public.pickups 
+        WHERE user_id = v_resident_id 
+        AND status IN ('scheduled', 'accepted', 'in_transit', 'arrived')
+    ) THEN
+        RETURN json_build_object('success', false, 'message', 'You already have an active pickup request');
+    END IF;
+
+    INSERT INTO public.pickups (
+        user_id, waste_type, address, latitude, longitude, date, qr_code_id, status
+    ) VALUES (
+        v_resident_id, p_waste_type, p_address, p_lat, p_lng, p_date, p_qr, 'scheduled'
+    ) RETURNING id INTO v_pickup_id;
+
+    RETURN json_build_object('success', true, 'pickup_id', v_pickup_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. COLLECTOR: CLAIM PICKUP
 CREATE OR REPLACE FUNCTION public.resident_cancel_pickup(p_pickup_id UUID)
 RETURNS JSON AS $$
 DECLARE

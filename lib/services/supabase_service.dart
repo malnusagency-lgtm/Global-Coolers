@@ -225,6 +225,17 @@ class SupabaseService {
         });
   }
 
+  Future<List<Map<String, dynamic>>> getPendingPickups() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    
+    final res = await _supabase.from('pickups')
+        .select()
+        .eq('collector_id', userId)
+        .not('status', 'in', '("completed", "cancelled", "archived")');
+    return List<Map<String, dynamic>>.from(res);
+  }
+
   Future<String?> schedulePickup({required String wasteType, required String address, required double latitude, required double longitude, required String date, required String qrCodeId}) async {
     final res = await _supabase.rpc('resident_schedule_pickup', params: {
       'p_waste_type': wasteType,

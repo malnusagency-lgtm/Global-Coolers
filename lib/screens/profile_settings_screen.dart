@@ -182,33 +182,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 );
               }),
 
-              _buildSettingItem('Clear History', Icons.delete_sweep_rounded, AppColors.amber, () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    title: const Text('Clear History?'),
-                    content: const Text('This will hide all completed pickups from your activity log. This action cannot be undone.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear', style: TextStyle(color: AppColors.error))),
-                    ],
-                  ),
-                );
-
-                if (confirm == true) {
-                  try {
-                    await SupabaseService().clearUserHistory();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('History cleared! ✨'), backgroundColor: AppColors.success),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              }),
 
               _buildSettingItem(l10n.translate('log_out'), Icons.logout_rounded, AppColors.error, () async {
                 await userProvider.signOut();

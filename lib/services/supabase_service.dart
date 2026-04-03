@@ -155,7 +155,10 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> getPickups() async {
     final userId = currentUser?.id;
     if (userId == null) return [];
-    final res = await _supabase.from('pickups').select().order('created_at', ascending: false);
+    final res = await _supabase.from('pickups')
+        .select()
+        .or('user_id.eq.$userId,collector_id.eq.$userId')
+        .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(res);
   }
 
@@ -470,13 +473,6 @@ class SupabaseService {
   }
 
   // ========================= APP MAINTENANCE =========================
-
-  Future<void> clearUserHistory() async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('pickups').delete().eq('user_id', userId).eq('status', 'completed');
-  }
-
   // ========================= MAPS =========================
 
   Future<void> launchMaps(double lat, double lng) async {

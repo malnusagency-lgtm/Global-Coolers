@@ -27,14 +27,6 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Pickup History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_rounded, color: AppColors.error),
-            onPressed: () => _confirmClearHistory(),
-            tooltip: 'Clear completed history',
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: Column(
         children: [
@@ -80,36 +72,6 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
         },
       ),
     );
-  }
-
-  Future<void> _confirmClearHistory() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear History?'),
-        content: const Text('This will archive all your completed pickups and clear them from this list. This action cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Clear All', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      )
-    );
-
-    if (confirm == true) {
-      try {
-        await _supabaseService.clearUserHistory();
-        if (mounted) {
-          setState(() {}); // Refresh list
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('History cleared.'), backgroundColor: AppColors.success));
-        }
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
   }
 
   Widget _buildHistoryList() {

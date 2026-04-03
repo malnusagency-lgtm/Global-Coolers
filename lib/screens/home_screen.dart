@@ -448,19 +448,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: const Text('Show QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
-              if (status == 'scheduled' || status == 'accepted')
-                GestureDetector(
-                  onTap: () => _showCancelDialog(pickup),
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                ),
             ],
           ),
         ],

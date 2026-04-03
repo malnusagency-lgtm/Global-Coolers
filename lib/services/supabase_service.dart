@@ -11,787 +11,9 @@ import 'package:url_launcher/url_launcher.dart';
 class SupabaseService {
   final _supabase = Supabase.instance.client;
 
-  // ──────────────────────────────────────────────
-  //  GPS
-  // ──────────────────────────────────────────────
+  // ========================= AUTH =========================
 
-  Future<Position?> getCurrentPosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('Location services are disabled.');
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('Location permissions are denied.');
-        return null;
-      }
-    }
-    
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('Location permissions are permanently denied.');
-      return null;
-    }
-
-    return await Geolocator.getCurrentPosition();
-  }
-
-  // ──────────────────────────────────────────────
-  //  REVERSE GEOCODE (free Nominatim / OSM)
-  // ──────────────────────────────────────────────
-
-  Future<String?> reverseGeocode(double lat, double lng) async {
-    try {
-      final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng&addressdetails=1',
-      );
-      final response = await http.get(url, headers: {'User-Agent': 'GlobalCoolers/1.0'});
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final addr = data['address'] as Map<String, dynamic>?;
-        if (addr != null) {
-          final parts = <String>[];
-          if (addr['road'] != null) parts.add(addr['road']);
-          if (addr['suburb'] != null) parts.add(addr['suburb']);
-          if (addr['city'] != null) parts.add(addr['city']);
-          else if (addr['town'] != null) parts.add(addr['town']);
-          if (parts.isNotEmpty) return parts.join(', ');
-        }
-        return data['display_name'] as String?;
-      }
-    } catch (e) {
-      debugPrint('Reverse geocode error: $e');
-    }
-    return null;
-  }
-
-  // ──────────────────────────────────────────────
-  //  PROFILES
-  // ──────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> getProfile() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not logged in');
-
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .single();
-      return response;
-    } catch (e) {
-      debugPrint('SupabaseService Profile Error: $e');
-      rethrow;
-    }
-  }
-
-  /// Get any user's profile by their ID (for tracking screens)
-  Future<Map<String, dynamic>> getProfileById(String userId) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .single();
-      return response;
-    } catch (e) {
-      debugPrint('SupabaseService GetProfileById Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  PICKUPS
-  // ──────────────────────────────────────────────
-
-  Future<List<dynamic>> getPickups() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return [];
-
-    try {
-      final response = await _supabase
-          .from('pickups')
-          .select('*, profiles(full_name)')
-          .or('user_id.eq.$userId,collector_id.eq.$userId')
-          .order('created_at', ascending: false);
-      return response as List<dynamic>;
-    } catch (e) {
-      debugPrint('SupabaseService Pickups Error: $e');
-      return [];
-    }
-  }
-
-  /// Cancel a scheduled pickup
-  /// Cancel a scheduled pickup (Resident)
-  Future<Map<String, dynamic>> residentCancelPickup(String pickupId) async {
-    try {
-      final response = await _supabase.rpc('resident_cancel_pickup', params: {
-        'p_pickup_id': pickupId,
-      });
-      return response as Map<String, dynamic>? ?? {'success': true};
-    } catch (e) {
-      debugPrint('Cancel Pickup Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<String?> schedulePickup({
-    required String wasteType,
-    required String address,
-    required double latitude,
-    required double longitude,
-    required String date,
-    required String qrCodeId,
-  }) async {
-    try {
-      final response = await _supabase.rpc('resident_schedule_pickup', params: {
-        'p_waste_type': wasteType,
-        'p_address': address,
-        'p_lat': latitude,
-        'p_lng': longitude,
-        'p_date': date,
-        'p_qr': qrCodeId,
-      });
-
-      if (response != null && response['success'] == true) {
-        final newId = response['pickup_id'];
-        return newId?.toString();
-      } else {
-        throw Exception(response?['message'] ?? 'Failed to schedule pickup');
-      }
-    } catch (e) {
-      debugPrint('Schedule Pickup Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  COLLECTOR: FIND & CLAIM NEARBY PICKUPS
-  // ──────────────────────────────────────────────
-
-  /// Finds the nearest online collector via geographic proximity
-  Future<String?> findNearestCollector(double lat, double lng) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select('id, latitude, longitude')
-          .eq('role', 'collector')
-          .eq('is_online', true);
-      
-      final List<dynamic> collectors = response;
-      if (collectors.isEmpty) return null;
-
-      final distance = Distance();
-      final pickupPoint = LatLng(lat, lng);
-
-      String? nearestId;
-      double minDistance = double.infinity;
-
-      for (var collector in collectors) {
-        if (collector['latitude'] == null || collector['longitude'] == null) continue;
-        
-        final collectorPoint = LatLng(
-          (collector['latitude'] as num).toDouble(),
-          (collector['longitude'] as num).toDouble(),
-        );
-
-        final d = distance.as(LengthUnit.Meter, pickupPoint, collectorPoint);
-        if (d < minDistance) {
-          minDistance = d;
-          nearestId = collector['id'];
-        }
-      }
-
-      return nearestId;
-    } catch (e) {
-      debugPrint('Find Nearest Collector Error: $e');
-      return null;
-    }
-  }
-
-  /// Get nearby scheduled pickups (unassigned OR assigned to me) for collectors
-  Future<List<Map<String, dynamic>>> getUnassignedPickupsNearby(double lat, double lng, {double radiusKm = 25.0}) async {
-    try {
-      final userId = _supabase.auth.currentUser?.id;
-      final response = await _supabase
-          .from('pickups')
-          .select('*, profiles(full_name)')
-          .eq('status', 'scheduled')
-          .order('created_at', ascending: false);
-      
-      final List<dynamic> pickups = response;
-      final distance = Distance();
-      final myPoint = LatLng(lat, lng);
-
-      final nearby = <Map<String, dynamic>>[];
-      for (var p in pickups) {
-        if (p['latitude'] == null || p['longitude'] == null) continue;
-        
-        final pickupPoint = LatLng(
-          (p['latitude'] as num).toDouble(),
-          (p['longitude'] as num).toDouble(),
-        );
-        final d = distance.as(LengthUnit.Kilometer, myPoint, pickupPoint);
-        
-        if (d <= radiusKm) {
-          final map = Map<String, dynamic>.from(p as Map);
-          map['distance_km'] = d;
-          // Show if this is unassigned OR assigned to me
-          final isUnassigned = map['collector_id'] == null || map['is_assigned'] != true;
-          final isAssignedToMe = map['collector_id'] == userId;
-          if (isUnassigned || isAssignedToMe) {
-            map['is_mine'] = isAssignedToMe;
-            nearby.add(map);
-          }
-        }
-      }
-
-      // Sort by distance
-      nearby.sort((a, b) => (a['distance_km'] as double).compareTo(b['distance_km'] as double));
-      return nearby;
-    } catch (e) {
-      debugPrint('Get Nearby Pickups Error: $e');
-      return [];
-    }
-  }
-
-  /// Collector accepts/claims a pickup using the secure RPC
-  Future<Map<String, dynamic>> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
-    try {
-      final response = await _supabase.rpc('collector_claim_pickup', params: {
-        'p_pickup_id': pickupId,
-        'p_mode': immediate ? 'immediate' : 'scheduled',
-        'p_scheduled_arrival': arrivalTime,
-      });
-      return response as Map<String, dynamic>? ?? {'success': true};
-    } catch (e) {
-      debugPrint('Claim Pickup Error: $e');
-      rethrow;
-    }
-  }
-
-  /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
-  Future<Map<String, dynamic>> collectorCancelPickup(String pickupId) async {
-    try {
-      final response = await _supabase.rpc('collector_cancel_pickup', params: {
-        'p_pickup_id': pickupId,
-      });
-      return response as Map<String, dynamic>? ?? {'success': true};
-    } catch (e) {
-      debugPrint('Cancel Assignment Error: $e');
-      rethrow;
-    }
-  }
-
-  /// Collector reschedules an assigned pickup
-  Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
-    try {
-      await _supabase.rpc('collector_reschedule_pickup', params: {
-        'p_pickup_id': pickupId,
-        'p_new_time': newTime,
-      });
-    } catch (e) {
-      debugPrint('Reschedule Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> clearUserHistory() async {
-    try {
-      await _supabase.rpc('user_clear_history');
-    } catch (e) {
-      debugPrint('Clear History Error: $e');
-      rethrow;
-    }
-  }
-
-  /// Collector marks that they have arrived at the resident's location
-  Future<void> markPickupArrived(String pickupId) async {
-    try {
-      await _supabase.from('pickups').update({
-        'status': 'arrived',
-      }).eq('id', pickupId);
-    } catch (e) {
-      debugPrint('Mark Arrived Error: $e');
-      rethrow;
-    }
-  }
-
-  /// Generic update for status changes
-  Future<void> updatePickupStatus(String pickupId, String status) async {
-    try {
-      await _supabase.from('pickups').update({
-        'status': status,
-      }).eq('id', pickupId);
-    } catch (e) {
-      debugPrint('Update Status Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  ADDRESS MANAGEMENT (SharedPreferences)
-  // ──────────────────────────────────────────────
-
-  Future<List<Map<String, dynamic>>> getUserAddresses() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('user_addresses');
-    if (raw == null) return [];
-    final List<dynamic> decoded = json.decode(raw);
-    return decoded.cast<Map<String, dynamic>>();
-  }
-
-  Future<void> saveUserAddress(Map<String, dynamic> address) async {
-    final addresses = await getUserAddresses();
-    // Generate a simple ID
-    address['id'] = DateTime.now().millisecondsSinceEpoch.toString();
-    // If first address, make it default
-    if (addresses.isEmpty) address['is_default'] = true;
-    addresses.add(address);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_addresses', json.encode(addresses));
-  }
-
-  Future<void> updateUserAddress(String addressId, Map<String, dynamic> updated) async {
-    final addresses = await getUserAddresses();
-    final idx = addresses.indexWhere((a) => a['id'] == addressId);
-    if (idx >= 0) {
-      updated['id'] = addressId;
-      updated['is_default'] = addresses[idx]['is_default'] ?? false;
-      addresses[idx] = updated;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_addresses', json.encode(addresses));
-    }
-  }
-
-  Future<void> deleteUserAddress(String addressId) async {
-    final addresses = await getUserAddresses();
-    addresses.removeWhere((a) => a['id'] == addressId);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_addresses', json.encode(addresses));
-  }
-
-  Future<void> setDefaultAddress(String addressId) async {
-    final addresses = await getUserAddresses();
-    for (var a in addresses) {
-      a['is_default'] = (a['id'] == addressId);
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_addresses', json.encode(addresses));
-  }
-
-  Future<Map<String, dynamic>?> getDefaultAddress() async {
-    final addresses = await getUserAddresses();
-    try {
-      return addresses.firstWhere((a) => a['is_default'] == true);
-    } catch (_) {
-      return addresses.isNotEmpty ? addresses.first : null;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  NOTIFICATIONS
-  // ──────────────────────────────────────────────
-
-  Future<List<Map<String, dynamic>>> getNotifications() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return [];
-
-    try {
-      final response = await _supabase
-          .from('notifications')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      debugPrint('Get Notifications Error: $e');
-      return [];
-    }
-  }
-
-  Future<void> markNotificationRead(String id) async {
-    try {
-      await _supabase.from('notifications').update({'is_read': true}).eq('id', id);
-    } catch (e) {
-      debugPrint('Mark Read Error: $e');
-    }
-  }
-
-  Future<void> markAllNotificationsRead() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    try {
-      await _supabase.from('notifications').update({'is_read': true}).eq('user_id', userId);
-    } catch (e) {
-      debugPrint('Mark All Read Error: $e');
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  REDEMPTION
-  // ──────────────────────────────────────────────
-
-  Future<void> redeemReward(String rewardId, int pointsCost, String mpesaNumber) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not logged in');
-
-    try {
-      final profile = await getProfile();
-      final currentPoints = profile['eco_points'] as int;
-
-      if (currentPoints < pointsCost) throw Exception('Insufficient points for this reward.');
-
-      await _supabase.from('profiles').update({
-        'eco_points': currentPoints - pointsCost,
-      }).eq('id', userId);
-
-      await _supabase.from('redemptions').insert({
-        'user_id': userId,
-        'reward_id': rewardId,
-        'points_spent': pointsCost,
-        'mpesa_number': mpesaNumber,
-        'status': 'pending',
-      });
-    } catch (e) {
-      debugPrint('Redemption Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  STORAGE
-  // ──────────────────────────────────────────────
-
-  Future<String?> uploadWastePhoto(Uint8List fileBytes, String extension) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return null;
-
-    final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$extension';
-    final path = 'waste-photos/$fileName';
-
-    try {
-      await _supabase.storage.from('waste-photos').uploadBinary(path, fileBytes);
-      return _supabase.storage.from('waste-photos').getPublicUrl(path);
-    } catch (e) {
-      debugPrint('Upload Error: $e');
-      return null;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  PICKUP COMPLETION & TRACKING
-  // ──────────────────────────────────────────────
-
-  /// Mandatory QR verification to complete a pickup and award rewards
-  Future<void> completePickup({
-    required String pickupId, 
-    required String qrCode,
-    double? actualWeightKg,
-  }) async {
-    try {
-      // Let Postgres handle the verification and point generation securely!
-      await _supabase.rpc(
-        'collector_complete_pickup',
-        params: {
-          'p_pickup_id': pickupId,
-          'p_qr_code': qrCode,
-          'p_actual_weight': actualWeightKg,
-        },
-      );
-    } catch (e) {
-      debugPrint('Complete Pickup Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> updateLocationFromGps() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    final pos = await getCurrentPosition();
-    if (pos == null) return;
-
-    try {
-      await _supabase.from('profiles').update({
-        'latitude': pos.latitude,
-        'longitude': pos.longitude,
-      }).eq('id', userId);
-    } catch (e) {
-      debugPrint('Update Location Error: $e');
-    }
-  }
-
-  Future<void> updateOnlineStatus(bool isOnline) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
-  }
-
-  Future<bool> isNearLocation(double targetLat, double targetLng, {double radiusMeters = 1000}) async {
-    final pos = await getCurrentPosition();
-    if (pos == null) return false;
-    
-    final distance = const Distance().as(LengthUnit.Meter, 
-      LatLng(pos.latitude, pos.longitude), 
-      LatLng(targetLat, targetLng)
-    );
-    
-    return distance <= radiusMeters;
-  }
-
-  Future<Map<String, dynamic>> verifyPickupByQr(String code) async {
-    try {
-      final response = await _supabase
-          .from('pickups')
-          .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
-          .eq('qr_code_id', code)
-          .single();
-      return response;
-    } catch (e) {
-      debugPrint('Verify Pickup QR Error: $e');
-      rethrow;
-    }
-  }
-
-  Stream<List<Map<String, dynamic>>> streamLocation(String collectorId) {
-    return _supabase
-        .from('profiles')
-        .stream(primaryKey: ['id'])
-        .eq('id', collectorId)
-        .map((maps) => maps.map((m) => m).toList());
-  }
-
-  Future<void> updateLocation(double lat, double lng) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('profiles').update({
-      'latitude': lat,
-      'longitude': lng,
-    }).eq('id', userId);
-  }
-
-  Future<List<dynamic>> getLeaderboard({String sortBy = 'eco_points', bool isNeighborhood = false}) async {
-    if (isNeighborhood) {
-      return getNeighborhoodLeaderboard(sortBy: sortBy);
-    }
-    final response = await _supabase.from('profiles').select().order(sortBy, ascending: false).limit(20);
-    return response as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getCollectorStats() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return {'count': 0, 'earnings': 0};
-    
-    try {
-      // 1. Get completed pickups for count and earnings (KES)
-      final countResponse = await _supabase
-          .from('pickups')
-          .select('id, cost_kes')
-          .eq('status', 'completed')
-          .eq('collector_id', userId);
-      
-      final list = countResponse as List<dynamic>;
-      double totalEarnings = 0;
-      for (var p in list) {
-        if (p['cost_kes'] != null) {
-          totalEarnings += (p['cost_kes'] as num).toDouble();
-        }
-      }
-      
-      return {
-        'count': list.length,
-        'earnings': totalEarnings
-      };
-    } catch (e) {
-      debugPrint('Get Collector Stats Error: $e');
-      return {'count': 0, 'earnings': 0};
-    }
-  }
-
-  /// Streams all active pickups for the resident (scheduled, accepted, in_transit, arrived)
-  Stream<List<Map<String, dynamic>>> streamResidentActivePickups() {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return const Stream.empty();
-
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', userId)
-        .asyncMap((list) async {
-          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
-          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
-          
-          // Sort by creation time (most recent first)
-          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
-          
-          // Attach collector names if assigned
-          for (var pickup in active) {
-            if (pickup['collector_id'] != null) {
-              try {
-                final collector = await _supabase
-                    .from('profiles')
-                    .select('full_name')
-                    .eq('id', pickup['collector_id'])
-                    .single();
-                pickup['collector_name'] = collector['full_name'];
-              } catch (e) {
-                pickup['collector_name'] = 'A Collector';
-              }
-            }
-          }
-          return active.cast<Map<String, dynamic>>();
-        });
-  }
-
-    return streamResidentActivePickups().map((list) => list.isNotEmpty ? list.first : null);
-  }
-
-  /// Streams the resident's single latest active pickup for the top tracker
-  Stream<Map<String, dynamic>?> streamActivePickupForResident() {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return const Stream.empty();
-
-    // Strategy: Stream pickups, but if a collector is assigned, we fetch their name via a separate call or cached logic
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', userId)
-        .asyncMap((list) async {
-          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
-          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
-          if (active.isEmpty) return null;
-          
-          // Most recent first
-          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
-          final pickup = Map<String, dynamic>.from(active.first);
-
-          // If a collector is assigned, let's try to get their name
-          if (pickup['collector_id'] != null) {
-            try {
-              final collector = await _supabase
-                  .from('profiles')
-                  .select('full_name')
-                  .eq('id', pickup['collector_id'])
-                  .single();
-              pickup['collector_name'] = collector['full_name'];
-            } catch (e) {
-              pickup['collector_name'] = 'A Collector';
-            }
-          }
-          
-          return pickup;
-        });
-  }
-
-  Future<List<dynamic>> getPendingPickups() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return [];
-    final response = await _supabase
-        .from('pickups')
-        .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
-        .eq('collector_id', userId)
-        .neq('status', 'completed')
-        .order('date', ascending: true);
-    return response as List<dynamic>;
-  }
-
-
-  // ──────────────────────────────────────────────
-  //  COLLECTOR ACTIONS (ACCEPT / ROUTE)
-  // ──────────────────────────────────────────────
-
-  Future<void> acceptPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
-    final updates = <String, dynamic>{
-      'collector_id': userId,
-      'status': immediate ? 'in_transit' : 'accepted',
-    };
-    
-    if (arrivalTime != null) {
-      updates['scheduled_arrival'] = arrivalTime;
-    }
-
-    try {
-      // Use filter to prevent race conditions
-      final response = await _supabase
-          .from('pickups')
-          .update(updates)
-          .eq('id', pickupId)
-          .filter('collector_id', 'is', null)
-          .select();
-          
-      if (response.isEmpty) {
-        throw Exception('This pickup has already been accepted by another collector.');
-      }
-    } catch (e) {
-      debugPrint('Accept Pickup Error: $e');
-      rethrow;
-    }
-  }
-
-  Stream<List<Map<String, dynamic>>> streamUnassignedPickups() {
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('status', 'scheduled')
-        .map((list) => list.where((p) => p['collector_id'] == null).toList());
-  }
-
-  /// Streams the resident's latest active pickup with collector info for the home screen tracker
-  Stream<Map<String, dynamic>?> streamActivePickupForResident() {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return const Stream.empty();
-
-    // Strategy: Stream pickups, but if a collector is assigned, we fetch their name via a separate call or cached logic
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', userId)
-        .asyncMap((list) async {
-          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
-          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
-          if (active.isEmpty) return null;
-          
-          // Most recent first
-          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
-          final pickup = Map<String, dynamic>.from(active.first);
-
-          // If a collector is assigned, let's try to get their name
-          if (pickup['collector_id'] != null) {
-            try {
-              final collector = await _supabase
-                  .from('profiles')
-                  .select('full_name')
-                  .eq('id', pickup['collector_id'])
-                  .single();
-              pickup['collector_name'] = collector['full_name'];
-            } catch (e) {
-              pickup['collector_name'] = 'A Collector';
-            }
-          }
-          
-          return pickup;
-        });
-  }
-
-  Future<void> launchMaps(double lat, double lng) async {
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
+  User? get currentUser => _supabase.auth.currentUser;
 
   Future<void> signOut() async => await _supabase.auth.signOut();
 
@@ -802,386 +24,273 @@ class SupabaseService {
     );
   }
 
-  Stream<Map<String, dynamic>> streamPickupStatus(String pickupId) {
+  // ========================= PROFILE =========================
+
+  Future<Map<String, dynamic>> getProfile() async {
+    final userId = currentUser?.id;
+    if (userId == null) throw Exception('Not logged in');
+    return await _supabase.from('profiles').select().eq('id', userId).single();
+  }
+
+  Future<Map<String, dynamic>> getProfileById(String userId) async {
+    return await _supabase.from('profiles').select().eq('id', userId).single();
+  }
+
+  Future<void> updateGenericProfile(Map<String, dynamic> updates) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('profiles').update(updates).eq('id', userId);
+  }
+
+  // ========================= GPS & GEO =========================
+
+  Future<Position?> getCurrentPosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    return await Geolocator.getCurrentPosition();
+  }
+
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng');
+      final res = await http.get(url, headers: {'User-Agent': 'GlobalCoolers/1.0'});
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        return data['display_name'];
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ========================= PICKUPS =========================
+
+  Stream<List<Map<String, dynamic>>> streamResidentActivePickups() {
+    final userId = currentUser?.id;
+    if (userId == null) return const Stream.empty();
+
     return _supabase
         .from('pickups')
         .stream(primaryKey: ['id'])
-        .eq('id', pickupId)
-        .map((list) => list.first);
+        .eq('user_id', userId)
+        .asyncMap((list) async {
+          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
+          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+          
+          for (var pickup in active) {
+            if (pickup['collector_id'] != null) {
+              try {
+                final collector = await getProfileById(pickup['collector_id']);
+                pickup['collector_name'] = collector['full_name'];
+              } catch (_) {
+                pickup['collector_name'] = 'A Collector';
+              }
+            }
+          }
+          return active.cast<Map<String, dynamic>>();
+        });
   }
 
-  // ──────────────────────────────────────────────
-  //  REWARDS
-  // ──────────────────────────────────────────────
+  Stream<Map<String, dynamic>?> streamActivePickupForResident() {
+    return streamResidentActivePickups().map((list) => list.isNotEmpty ? list.first : null);
+  }
+
+  Stream<Map<String, dynamic>> streamPickupStatus(String pickupId) {
+    return _supabase.from('pickups').stream(primaryKey: ['id']).eq('id', pickupId).map((list) => list.first);
+  }
+
+  Stream<List<Map<String, dynamic>>> streamUnassignedPickups() {
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('status', 'scheduled')
+        .map((list) => list.where((p) => p['collector_id'] == null).toList());
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingPickups() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    final res = await _supabase
+        .from('pickups')
+        .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
+        .eq('collector_id', userId)
+        .neq('status', 'completed');
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<void> schedulePickup({
+    required String wasteType,
+    required String address,
+    required double latitude,
+    required double longitude,
+    required String date,
+    required String qrCodeId,
+  }) async {
+    await _supabase.rpc('resident_schedule_pickup', params: {
+      'p_waste_type': wasteType,
+      'p_address': address,
+      'p_lat': latitude,
+      'p_lng': longitude,
+      'p_date': date,
+      'p_qr': qrCodeId,
+    });
+  }
+
+  Future<void> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
+    await _supabase.rpc('collector_claim_pickup', params: {
+      'p_pickup_id': pickupId,
+      'p_mode': immediate ? 'immediate' : 'scheduled',
+      'p_scheduled_arrival': arrivalTime,
+    });
+  }
+
+  Future<void> residentCancelPickup(String pickupId) async {
+    await _supabase.rpc('resident_cancel_pickup', params: {'p_pickup_id': pickupId});
+  }
+
+  Future<void> markPickupArrived(String pickupId) async {
+    await _supabase.from('pickups').update({'status': 'arrived'}).eq('id', pickupId);
+  }
+
+  Future<void> completePickup({required String pickupId, required String qrCode, double? actualWeightKg}) async {
+    await _supabase.rpc('collector_complete_pickup', params: {
+      'p_pickup_id': pickupId,
+      'p_qr_code': qrCode,
+      'p_actual_weight': actualWeightKg,
+    });
+  }
+
+  // ========================= REWARDS =========================
 
   Future<List<Map<String, dynamic>>> getRewards() async {
-    final response = await _supabase
-        .from('rewards')
-        .select()
-        .eq('is_active', true)
-        .order('points_cost', ascending: true);
-    return List<Map<String, dynamic>>.from(response);
+    final res = await _supabase.from('rewards').select().eq('is_active', true).order('points_cost', ascending: true);
+    return List<Map<String, dynamic>>.from(res);
   }
 
-
-  // ──────────────────────────────────────────────
-  //  RATINGS & REVIEWS
-  // ──────────────────────────────────────────────
-
-  Future<void> submitRating({
-    required String pickupId,
-    required int rating,
-    String comment = '',
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
-    try {
-      // Get pickup to find the other party
-      final pickup = await _supabase.from('pickups').select().eq('id', pickupId).single();
-      final revieweeId = pickup['collector_id'] ?? pickup['user_id'];
-
-      await _supabase.from('reviews').insert({
-        'pickup_id': pickupId,
-        'reviewer_id': userId,
-        'reviewee_id': revieweeId,
-        'rating': rating,
-        'comment': comment,
-      });
-
-      // Also store rating on the pickup for quick access
-      await _supabase.from('pickups').update({'rating': rating}).eq('id', pickupId);
-    } catch (e) {
-      debugPrint('Submit Rating Error: $e');
-      rethrow;
-    }
+  Future<void> redeemReward(String rewardId, int pointsCost, String mpesaNumber) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('redemptions').insert({
+      'user_id': userId,
+      'reward_id': rewardId,
+      'points_spent': pointsCost,
+      'mpesa_number': mpesaNumber,
+      'status': 'pending',
+    });
   }
 
-  Future<double> getAverageRating(String userId) async {
-    try {
-      final reviews = await _supabase.from('reviews').select('rating').eq('reviewee_id', userId);
-      if ((reviews as List).isEmpty) return 0;
-      final total = reviews.fold<int>(0, (sum, r) => sum + (r['rating'] as int));
-      return total / reviews.length;
-    } catch (e) {
-      return 0;
-    }
+  // ========================= RATINGS =========================
+
+  Future<void> submitRating({required String pickupId, required int rating, String comment = ''}) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+
+    final pickup = await _supabase.from('pickups').select().eq('id', pickupId).single();
+    final revieweeId = pickup['collector_id'] ?? pickup['user_id'];
+
+    await _supabase.from('reviews').insert({
+      'pickup_id': pickupId,
+      'reviewer_id': userId,
+      'reviewee_id': revieweeId,
+      'rating': rating,
+      'comment': comment,
+    });
+    await _supabase.from('pickups').update({'rating': rating}).eq('id', pickupId);
   }
 
-  // ──────────────────────────────────────────────
-  //  COLLECTOR EARNINGS (DETAILED)
-  // ──────────────────────────────────────────────
+  // ========================= REPORTS =========================
 
-  Future<Map<String, dynamic>> getCollectorEarningsDetailed() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return {'completed': [], 'total_earnings': 0, 'total_points': 0};
-
-    try {
-      final completed = await _supabase
-          .from('pickups')
-          .select()
-          .eq('collector_id', userId)
-          .eq('status', 'completed')
-          .order('created_at', ascending: false);
-
-      int totalEarnings = 0;
-      int totalPoints = 0;
-      for (var p in completed) {
-        totalEarnings += ((p['cost_kes'] ?? 0) as num).toInt();
-        totalPoints += ((p['points_awarded'] ?? 0) as num).toInt();
-      }
-
-      return {
-        'completed': completed,
-        'total_earnings': totalEarnings,
-        'total_points': totalPoints,
-      };
-    } catch (e) {
-      debugPrint('Collector Earnings Error: $e');
-      return {'completed': [], 'total_earnings': 0, 'total_points': 0};
-    }
+  Future<void> submitReport({required String issueType, required String location, required String description, String? photoUrl}) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('reports').insert({
+      'user_id': userId,
+      'issue_type': issueType,
+      'location': location,
+      'description': description,
+      'photo_url': photoUrl,
+    });
   }
 
-  // ──────────────────────────────────────────────
-  //  CHALLENGES (JOIN / TRACK)
-  // ──────────────────────────────────────────────
-
-  Future<void> joinChallenge(String challengeId) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
-    try {
-      await _supabase.from('challenge_participants').insert({
-        'user_id': userId,
-        'challenge_id': challengeId,
-        'joined_at': DateTime.now().toIso8601String(),
-        'progress': 0,
-      });
-    } catch (e) {
-      debugPrint('Join Challenge Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  CONSOLIDATED API METHODS (From ApiService)
-  // ──────────────────────────────────────────────
-
-  Future<List<dynamic>> getAllChallenges() async {
-    try {
-      final response = await _supabase
-          .from('challenges')
-          .select('*')
-          .order('ends_at', ascending: true);
-      return response as List<dynamic>;
-    } catch (e) {
-      debugPrint('Get All Challenges Error: $e');
-      return [];
-    }
-  }
-
-  Future<void> submitReport({
-    required String issueType,
-    required String location,
-    required String description,
-    String? photoUrl,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
-    try {
-      await _supabase.from('reports').insert({
-        'user_id': userId,
-        'issue_type': issueType,
-        'location': location,
-        'description': description,
-        'photo_url': photoUrl,
-        'status': 'pending'
-      });
-    } catch (e) {
-      debugPrint('Submit Report Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> updateGenericProfile({
-    String? fullName,
-    String? phone,
-    String? address,
-    double? latitude,
-    double? longitude,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
-    final updates = <String, dynamic>{};
-    if (fullName != null) updates['full_name'] = fullName;
-    if (phone != null) updates['phone'] = phone;
-    if (address != null) updates['address'] = address;
-    if (latitude != null) updates['latitude'] = latitude;
-    if (longitude != null) updates['longitude'] = longitude;
-
-    if (updates.isEmpty) return;
-
-    try {
-      await _supabase.from('profiles').update(updates).eq('id', userId);
-    } catch (e) {
-      debugPrint('Update Generic Profile Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<List<dynamic>> getUserChallenges() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return [];
-
-    try {
-      final response = await _supabase
-          .from('challenge_participants')
-          .select('*, challenges(*)')
-          .eq('user_id', userId);
-      return response as List<dynamic>;
-    } catch (e) {
-      debugPrint('Get User Challenges Error: $e');
-      return [];
-    }
-  }
+  // ========================= CHALLENGES =========================
 
   Future<List<String>> getJoinedChallengeIds() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = currentUser?.id;
     if (userId == null) return [];
-
-    try {
-      final response = await _supabase
-          .from('challenge_participants')
-          .select('challenge_id')
-          .eq('user_id', userId);
-      return (response as List).map<String>((r) => r['challenge_id'].toString()).toList();
-    } catch (e) {
-      return [];
-    }
+    final res = await _supabase.from('challenge_participants').select('challenge_id').eq('user_id', userId);
+    return (res as List).map((e) => e['challenge_id'].toString()).toList();
   }
 
-  // ──────────────────────────────────────────────
-  //  WASTE BREAKDOWN (REAL DATA)
-  // ──────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getAllChallenges() async {
+    final res = await _supabase.from('challenges').select().order('ends_at', ascending: true);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getUserChallenges() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    final res = await _supabase.from('challenge_participants').select('*, challenges(*)').eq('user_id', userId);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<void> joinChallenge(String challengeId) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('challenge_participants').insert({'user_id': userId, 'challenge_id': challengeId});
+  }
+
+  // ========================= ANALYTICS =========================
 
   Future<Map<String, double>> getWasteBreakdown() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = currentUser?.id;
     if (userId == null) return {};
-
-    try {
-      final pickups = await _supabase
-          .from('pickups')
-          .select('waste_type, weight_kg')
-          .eq('user_id', userId)
-          .eq('status', 'completed');
-
-      final breakdown = <String, double>{};
-      for (var pickup in pickups) {
-        final idRaw = pickup['id'];
-        if (idRaw == null) continue;
-        final type = pickup['waste_type'] ?? 'Other';
-        final weight = ((pickup['weight_kg'] ?? 1.0) as num).toDouble();
-        breakdown[type] = (breakdown[type] ?? 0) + weight;
-      }
-      return breakdown;
-    } catch (e) {
-      debugPrint('Waste Breakdown Error: $e');
-      return {};
+    final pickups = await _supabase.from('pickups').select('waste_type, weight_kg').eq('user_id', userId).eq('status', 'completed');
+    
+    final breakdown = <String, double>{};
+    for (var p in pickups) {
+      final type = p['waste_type'] ?? 'Other';
+      final weight = ((p['weight_kg'] ?? 0.0) as num).toDouble();
+      breakdown[type] = (breakdown[type] ?? 0) + weight;
     }
+    return breakdown;
   }
-
-  // ──────────────────────────────────────────────
-  //  REFERRAL SYSTEM
-  // ──────────────────────────────────────────────
-
-  Future<String> getReferralCode() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return '';
-
-    try {
-      final profile = await getProfile();
-      if (profile['referral_code'] != null) return profile['referral_code'];
-
-      // Generate referral code
-      final code = 'GC-${userId.substring(0, 6).toUpperCase()}';
-      await _supabase.from('profiles').update({'referral_code': code}).eq('id', userId);
-      return code;
-    } catch (e) {
-      return 'GC-${userId.substring(0, 6).toUpperCase()}';
-    }
-  }
-
-  Future<int> getReferralCount() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return 0;
-
-    try {
-      final code = await getReferralCode();
-      final response = await _supabase
-          .from('profiles')
-          .select('id')
-          .eq('referred_by', code);
-      return (response as List).length;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  PHOTO VERIFICATION (Collector Side)
-  // ──────────────────────────────────────────────
-
-  Future<void> submitVerificationPhoto(String pickupId, String photoUrl) async {
-    try {
-      await _supabase.from('pickups').update({
-        'verification_photo_url': photoUrl,
-      }).eq('id', pickupId);
-    } catch (e) {
-      debugPrint('Verification Photo Error: $e');
-      rethrow;
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  STREAK TRACKING
-  // ──────────────────────────────────────────────
 
   Future<int> getUserStreak() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = currentUser?.id;
     if (userId == null) return 0;
-
-    try {
-      final pickups = await _supabase
-          .from('pickups')
-          .select('created_at')
-          .eq('user_id', userId)
-          .eq('status', 'completed')
-          .order('created_at', ascending: false);
-
-      if ((pickups as List).isEmpty) return 0;
-
-      // Count consecutive weeks with a pickup
-      int streak = 0;
-      DateTime checkDate = DateTime.now();
-
-      for (int week = 0; week < 52; week++) {
-        final weekStart = checkDate.subtract(Duration(days: checkDate.weekday + (week * 7)));
-        final weekEnd = weekStart.add(const Duration(days: 7));
-
-        final hasPickup = pickups.any((p) {
-          try {
-            final d = DateTime.parse(p['created_at']);
-            return d.isAfter(weekStart) && d.isBefore(weekEnd);
-          } catch (_) {
-            return false;
-          }
-        });
-
-        if (hasPickup) {
-          streak++;
-        } else if (week > 0) {
-          break; // Streak broken
-        }
-      }
-
-      return streak;
-    } catch (e) {
-      debugPrint('Get Streak Error: $e');
-      return 0;
-    }
+    final res = await _supabase.from('pickups').select('id').eq('user_id', userId).eq('status', 'completed');
+    return res.length;
   }
 
-  // ──────────────────────────────────────────────
-  //  NEIGHBORHOOD LEADERBOARD
-  // ──────────────────────────────────────────────
-
-  Future<List<dynamic>> getNeighborhoodLeaderboard({String sortBy = 'eco_points'}) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return [];
-
-    try {
-      final profile = await getProfile();
-      final myAddress = profile['address'] as String?;
-      if (myAddress == null) return [];
-
-      // Extract area keyword from address
-      final parts = myAddress.split(',');
-      final area = parts.length > 1 ? parts[1].trim() : parts[0].trim();
-
-      final response = await _supabase
-          .from('profiles')
-          .select('id, full_name, eco_points, co2_saved, address')
-          .ilike('address', '%$area%')
-          .order(sortBy, ascending: false)
-          .limit(20);
-
-      return response as List<dynamic>;
-    } catch (e) {
-      debugPrint('Neighborhood Leaderboard Error: $e');
-      return [];
+  Future<Map<String, dynamic>> getCollectorEarningsDetailed() async {
+    final userId = currentUser?.id;
+    if (userId == null) return {'completed': [], 'total_earnings': 0, 'total_points': 0};
+    final completed = await _supabase.from('pickups').select().eq('collector_id', userId).eq('status', 'completed');
+    
+    int totalEarnings = 0;
+    for (var p in completed) {
+      totalEarnings += ((p['cost_kes'] ?? 0) as num).toInt();
     }
+    return {'completed': completed, 'total_earnings': totalEarnings};
+  }
+
+  // ========================= REFERRAL =========================
+
+  Future<String> getReferralCode() async {
+    final profile = await getProfile();
+    return profile['referral_code'] ?? 'GC-WELCOME';
+  }
+
+  // ========================= MAPS =========================
+
+  Future<void> launchMaps(double lat, double lng) async {
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 }
-

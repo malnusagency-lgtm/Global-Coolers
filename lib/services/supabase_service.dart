@@ -651,6 +651,9 @@ class SupabaseService {
         });
   }
 
+    return streamResidentActivePickups().map((list) => list.isNotEmpty ? list.first : null);
+  }
+
   /// Streams the resident's single latest active pickup for the top tracker
   Stream<Map<String, dynamic>?> streamActivePickupForResident() {
     final userId = _supabase.auth.currentUser?.id;

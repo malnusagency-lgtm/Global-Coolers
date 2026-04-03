@@ -36,9 +36,10 @@ class SupabaseService {
     return await _supabase.from('profiles').select().eq('id', userId).single();
   }
 
-  Future<void> updateGenericProfile(Map<String, dynamic> updates) async {
+  Future<void> updateGenericProfile([Map<String, dynamic> updates = const {}]) async {
     final userId = currentUser?.id;
     if (userId == null) return;
+    if (updates.isEmpty) return; // Handle empty calls from UI
     await _supabase.from('profiles').update(updates).eq('id', userId);
   }
 
@@ -77,8 +78,8 @@ class SupabaseService {
     if (pos != null) await updateLocation(pos.latitude, pos.longitude);
   }
 
-  Stream<Map<String, dynamic>> streamLocation(String userId) {
-    return _supabase.from('profiles').stream(primaryKey: ['id']).eq('id', userId).map((list) => list.first);
+  Stream<List<Map<String, dynamic>>> streamLocation(String userId) {
+    return _supabase.from('profiles').stream(primaryKey: ['id']).eq('id', userId);
   }
 
   Future<bool> isNearLocation(double targetLat, double targetLng, {double thresholdMeters = 100}) async {
@@ -196,8 +197,8 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<void> schedulePickup({required String wasteType, required String address, required double latitude, required double longitude, required String date, required String qrCodeId}) async {
-    await _supabase.rpc('resident_schedule_pickup', params: {
+  Future<String?> schedulePickup({required String wasteType, required String address, required double latitude, required double longitude, required String date, required String qrCodeId}) async {
+    final res = await _supabase.rpc('resident_schedule_pickup', params: {
       'p_waste_type': wasteType,
       'p_address': address,
       'p_lat': latitude,
@@ -205,6 +206,7 @@ class SupabaseService {
       'p_date': date,
       'p_qr': qrCodeId,
     });
+    return res?.toString();
   }
 
   Future<void> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
@@ -215,12 +217,22 @@ class SupabaseService {
     });
   }
 
-  Future<void> residentCancelPickup(String pickupId) async {
-    await _supabase.rpc('resident_cancel_pickup', params: {'p_pickup_id': pickupId});
+  Future<Map<String, dynamic>> residentCancelPickup(String pickupId) async {
+    try {
+      await _supabase.rpc('resident_cancel_pickup', params: {'p_pickup_id': pickupId});
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
   }
 
-  Future<void> collectorCancelPickup(String pickupId) async {
-    await _supabase.rpc('collector_cancel_pickup', params: {'p_pickup_id': pickupId});
+  Future<Map<String, dynamic>> collectorCancelPickup(String pickupId) async {
+    try {
+      await _supabase.rpc('collector_cancel_pickup', params: {'p_pickup_id': pickupId});
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
   }
 
   Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
@@ -373,8 +385,9 @@ class SupabaseService {
     return {'completed': completed, 'total_earnings': totalEarnings};
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboard({String period = 'all'}) async {
-    final res = await _supabase.from('profiles').select('full_name, eco_points').order('eco_points', ascending: false).limit(50);
+  Future<List<Map<String, dynamic>>> getLeaderboard({String period = 'all', String? sortBy}) async {
+    final sortCol = sortBy ?? 'eco_points';
+    final res = await _supabase.from('profiles').select('full_name, eco_points, co2_saved').order(sortCol, ascending: false).limit(50);
     return List<Map<String, dynamic>>.from(res);
   }
 

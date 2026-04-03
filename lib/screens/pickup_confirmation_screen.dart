@@ -42,14 +42,113 @@ class _PickupConfirmationScreenState extends State<PickupConfirmationScreen> {
   void _startListening() {
     _pickupSubscription = _supabaseService.streamPickupStatus(_pickupId!).listen((status) {
       if (!mounted) return;
+      
+      // 1. Monitor for Acceptance
+      if (status['status'] == 'accepted' || status['status'] == 'in_transit') {
+        _showCollectionAcceptedDialog(status);
+      }
+
+      // 2. Monitor for Completion
       if (status['status'] == 'completed') {
-        // Points banner is handled globally by GlobalNotificationWrapper
         _pickupSubscription?.cancel();
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
         });
       }
     });
+  }
+
+  bool _isAlertShown = false;
+  void _showCollectionAcceptedDialog(Map<String, dynamic> pickup) {
+    if (!mounted || _isAlertShown) return;
+    _isAlertShown = true;
+    final collectorName = pickup['collector_name'] ?? 'A collector';
+    
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: AppColors.primaryGradient),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.celebration_rounded, color: Colors.white, size: 50),
+                    SizedBox(height: 12),
+                    Text('PICKUP CLAIMED!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Text(
+                      '$collectorName is coming to help!',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Your collection request for ${pickup['waste_type']} has been accepted. You can now track them live!',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 24),
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              Navigator.pushNamed(context, '/live-tracking', arguments: {
+                                'collectorId': pickup['collector_id'],
+                                'pickupId': pickup['id'],
+                                'qrCode': _qrCode,
+                                'wasteType': _wasteType,
+                                'weightKg': _weightKg,
+                                'costKes': _costKes,
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Text('TRACK LIVE 🚛', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Got it', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override

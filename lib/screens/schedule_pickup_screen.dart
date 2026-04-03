@@ -754,6 +754,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
             context,
             '/pickup-confirmation',
             arguments: {
+              'pickupId': pickupId,
               'qrCode': qrCodeId,
               'wasteType': _categories[_selectedCategoryIndex]['name'],
               'weightKg': _selectedWeight,
@@ -768,11 +769,12 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
           context,
           '/pickup-confirmation',
           arguments: {
-            'qrCode': qrCodeId,
-            'wasteType': _categories[_selectedCategoryIndex]['name'],
-            'weightKg': _selectedWeight,
-            'costKes': _estimatedCost,
-          },
+          'pickupId': pickupId,
+          'qrCode': qrCodeId,
+          'wasteType': _categories[_selectedCategoryIndex]['name'],
+          'weightKg': _selectedWeight,
+          'costKes': _estimatedCost,
+        },
         );
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup scheduled! 🎉'), backgroundColor: AppColors.success));
       }

@@ -378,15 +378,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Scheduled Pickups with Cancel ──
 
   Widget _buildScheduledPickups(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: _supabaseService.getPickups(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabaseService.streamResidentActivePickups(),
       builder: (context, snapshot) {
-        final activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
-        final scheduled = (snapshot.data ?? [])
-            .cast<Map<String, dynamic>?>()
-            .where((p) => activeStatuses.contains(p?['status']))
-            .toList();
-
+        final scheduled = snapshot.data ?? [];
         if (scheduled.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -400,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ...scheduled.map((p) => _buildScheduledItem(p!)),
+            ...scheduled.map((p) => _buildScheduledItem(p)),
           ],
         );
       },

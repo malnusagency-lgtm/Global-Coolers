@@ -587,6 +587,21 @@ class SupabaseService {
     }).eq('id', userId);
   }
 
+  /// Collector accepts/claims a pickup using the secure RPC (Step 4 of plan)
+  Future<Map<String, dynamic>> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
+    try {
+      final response = await _supabase.rpc('collector_claim_pickup', params: {
+        'p_pickup_id': pickupId,
+        'p_mode': immediate ? 'immediate' : 'scheduled',
+        'p_scheduled_arrival': arrivalTime,
+      });
+      return response as Map<String, dynamic>? ?? {'success': true};
+    } catch (e) {
+      debugPrint('Claim Pickup Error: $e');
+      rethrow;
+    }
+  }
+
   Future<List<dynamic>> getLeaderboard({String sortBy = 'eco_points', bool isNeighborhood = false}) async {
     if (isNeighborhood) {
       return getNeighborhoodLeaderboard(sortBy: sortBy);

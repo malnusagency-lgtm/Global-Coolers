@@ -476,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildStatusChip(pickup['status'] ?? 'scheduled'),
                 const SizedBox(height: 6),
-                if (status == 'scheduled' || status == 'accepted')
+                if ((pickup['status'] ?? 'scheduled') == 'scheduled' || (pickup['status'] ?? 'scheduled') == 'accepted')
                   GestureDetector(
                     onTap: () => _showCancelDialog(pickup),
                     child: Container(

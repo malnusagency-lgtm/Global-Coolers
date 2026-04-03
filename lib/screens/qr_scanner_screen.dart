@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import '../providers/user_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 class QRScannerScreen extends StatefulWidget {

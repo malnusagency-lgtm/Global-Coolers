@@ -36,10 +36,23 @@ class SupabaseService {
     return await _supabase.from('profiles').select().eq('id', userId).single();
   }
 
-  Future<void> updateGenericProfile([Map<String, dynamic> updates = const {}]) async {
+  /// Unified Profile Update with named parameters to match UI expectations.
+  Future<void> updateGenericProfile({
+    String? fullName,
+    String? phone,
+    String? address,
+    Map<String, dynamic>? extraUpdates,
+  }) async {
     final userId = currentUser?.id;
     if (userId == null) return;
-    if (updates.isEmpty) return; // Handle empty calls from UI
+
+    final updates = <String, dynamic>{};
+    if (fullName != null) updates['full_name'] = fullName;
+    if (phone != null) updates['phone'] = phone;
+    if (address != null) updates['address'] = address;
+    if (extraUpdates != null) updates.addAll(extraUpdates);
+
+    if (updates.isEmpty) return;
     await _supabase.from('profiles').update(updates).eq('id', userId);
   }
 
@@ -385,7 +398,11 @@ class SupabaseService {
     return {'completed': completed, 'total_earnings': totalEarnings};
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboard({String period = 'all', String? sortBy}) async {
+  Future<List<Map<String, dynamic>>> getLeaderboard({
+    String period = 'all',
+    String? sortBy,
+    bool isNeighborhood = false,
+  }) async {
     final sortCol = sortBy ?? 'eco_points';
     final res = await _supabase.from('profiles').select('full_name, eco_points, co2_saved').order(sortCol, ascending: false).limit(50);
     return List<Map<String, dynamic>>.from(res);

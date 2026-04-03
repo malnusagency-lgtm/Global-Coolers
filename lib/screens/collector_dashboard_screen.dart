@@ -663,40 +663,35 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              if (status == 'accepted' || status == 'in_transit' || status == 'arrived')
-                TextButton(
-                  onPressed: () => _cancelAssignment(p['id']),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 13)),
+          const SizedBox(height: 16),
+          if (status == 'accepted' || status == 'in_transit' || status == 'arrived')
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () => status == 'arrived' 
+                    ? Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()})
+                    : _checkArrival(p),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: status == 'arrived' ? AppColors.teal : AppColors.success,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  shadowColor: (status == 'arrived' ? AppColors.teal : AppColors.success).withOpacity(0.4),
                 ),
-              const Spacer(),
-              if (status == 'accepted' || status == 'in_transit')
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _checkArrival(p), 
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success, 
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                    ), 
-                    child: const Text('I\'ve Arrived', maxLines: 1, overflow: TextOverflow.ellipsis)
-                  )
-                )
-              else if (status == 'arrived')
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), 
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.teal, 
-                      foregroundColor: Colors.white,
-                      elevation: 4,
-                    ), 
-                    child: const Text('Scan QR to Earn', maxLines: 1, overflow: TextOverflow.ellipsis)
-                  )
-                )
-            ],
-          )
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(status == 'arrived' ? Icons.qr_code_scanner_rounded : Icons.location_on_rounded),
+                    const SizedBox(width: 10),
+                    Text(
+                      status == 'arrived' ? 'SCAN QR TO COMPLETE' : 'I HAVE ARRIVED',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -759,19 +754,22 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   }
 
   Future<void> _checkArrival(Map<String, dynamic> p) async {
-    final arrived = await _supabaseService.isNearLocation(p['latitude'], p['longitude']);
+    // Relaxed proximity check (1km) so it never blocks the collector
+    final arrived = await _supabaseService.isNearLocation(p['latitude'], p['longitude'], thresholdMeters: 1000);
+    
     if (!arrived) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You are too far from the pickup location to mark as arrived.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note: You seem a bit far, but proceeding anyway... 🚛'),
+            backgroundColor: AppColors.amber,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
     
-    // ✅ Direct and smooth transition
+    // ✅ Proceed to status update regardless of proximity result
     await _updateStatus(p['id'], 'arrived');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -782,7 +780,6 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
         ),
       );
       
-      // Delay slightly for the snackbar to be seen, then navigate
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()});

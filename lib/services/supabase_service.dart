@@ -161,7 +161,8 @@ class SupabaseService {
       });
 
       if (response != null && response['success'] == true) {
-        return response['pickup_id'].toString();
+        final newId = response['pickup_id'];
+        return newId?.toString();
       } else {
         throw Exception(response?['message'] ?? 'Failed to schedule pickup');
       }
@@ -988,9 +989,11 @@ class SupabaseService {
           .eq('status', 'completed');
 
       final breakdown = <String, double>{};
-      for (var p in pickups) {
-        final type = p['waste_type'] ?? 'Other';
-        final weight = ((p['weight_kg'] ?? 1.0) as num).toDouble();
+      for (var pickup in pickups) {
+        final idRaw = pickup['id'];
+        if (idRaw == null) continue;
+        final type = pickup['waste_type'] ?? 'Other';
+        final weight = ((pickup['weight_kg'] ?? 1.0) as num).toDouble();
         breakdown[type] = (breakdown[type] ?? 0) + weight;
       }
       return breakdown;

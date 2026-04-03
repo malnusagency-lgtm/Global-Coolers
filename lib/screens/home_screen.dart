@@ -560,7 +560,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await _supabaseService.residentCancelPickup(pickup['id'].toString());
+                final pickupId = pickup['id'];
+                if (pickupId == null) throw Exception('Unable to find pickup ID');
+                
+                await _supabaseService.residentCancelPickup(pickupId.toString());
                 if (mounted) {
                   setState(() {}); // Refresh the list
                   ScaffoldMessenger.of(context).showSnackBar(

@@ -281,8 +281,11 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
   Future<void> _handleClaim(Map<String, dynamic> pickup, {String? arrivalTime}) async {
     try {
+      final pickupId = pickup['id'];
+      if (pickupId == null) throw Exception('Unable to find pickup ID');
+      
       await _supabaseService.claimPickup(
-        pickup['id'].toString(),
+        pickupId.toString(),
         immediate: arrivalTime == null,
         arrivalTime: arrivalTime,
       );
@@ -719,7 +722,10 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
     if (confirm == true) {
       try {
-        await _supabaseService.collectorCancelPickup(id.toString());
+        final pickupId = id;
+        if (pickupId == null) throw Exception('Unable to find pickup ID');
+        
+        await _supabaseService.collectorCancelPickup(pickupId.toString());
         if (mounted) {
           _declinedPickups.add(id.toString()); // Local persistence skip
           setState(() {});

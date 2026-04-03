@@ -57,40 +57,42 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () async { setState(() {}); },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(userProvider, l10n),
-                const SizedBox(height: 24),
-                ImpactCard(
-                  points: userProvider.ecoPoints,
-                  co2Saved: userProvider.totalWasteDiverted * 0.8,
-                  onTap: () => Navigator.pushNamed(context, '/impact-stats'),
+        child: StreamBuilder<Map<String, dynamic>?>(
+          stream: _supabaseService.streamActivePickupForResident(),
+          builder: (context, snapshot) {
+            final activePickup = snapshot.data;
+            return RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async { setState(() {}); },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(userProvider, l10n),
+                    const SizedBox(height: 24),
+                    ImpactCard(
+                      points: userProvider.ecoPoints,
+                      co2Saved: userProvider.totalWasteDiverted * 0.8,
+                      onTap: () => Navigator.pushNamed(context, '/impact-stats'),
+                    ),
+                    if (activePickup != null) ...[
+                      const SizedBox(height: 24),
+                      _buildActivePickupTracker(activePickup),
+                    ],
+                    const SizedBox(height: 28),
+                    _buildQuickActions(context, l10n, hasActive: activePickup != null),
+                    const SizedBox(height: 32),
+                    _buildScheduledPickups(context),
+                    const SizedBox(height: 32),
+                    _buildRecentActivity(context, l10n),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-                if (_activePickup != null) ...[
-                  const SizedBox(height: 20),
-                  _buildActivePickupTracker(_activePickup!),
-                ],
-                const SizedBox(height: 28),
-                _buildStreakCard(),
-                const SizedBox(height: 28),
-                _buildQuickActions(context, l10n),
-                const SizedBox(height: 28),
-                _buildScheduledPickups(context),
-                const SizedBox(height: 28),
-                _buildReferralCard(),
-                const SizedBox(height: 28),
-                _buildRecentActivitySection(l10n),
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
       bottomNavigationBar: BottomNavBar(
@@ -184,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, AppLocalizations l10n) {
+  Widget _buildQuickActions(BuildContext context, AppLocalizations l10n, {bool hasActive = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -192,7 +194,15 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 14),
         Row(
           children: [
-            _buildActionCard(context, l10n.translate('schedule_pickup'), Icons.calendar_today_rounded, AppColors.primary, '/schedule-pickup'),
+            _buildActionCard(
+              context, 
+              l10n.translate('schedule_pickup'), 
+              Icons.calendar_today_rounded, 
+              AppColors.primary, 
+              '/schedule-pickup',
+              isDisabled: hasActive,
+              disabledMessage: 'You already have an active pickup.',
+            ),
             const SizedBox(width: 10),
             _buildActionCard(context, 'Impact', Icons.eco_rounded, AppColors.teal, '/impact-stats'),
             const SizedBox(width: 10),
@@ -205,36 +215,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActionCard(BuildContext context, String title, IconData icon, Color color, String route) {
+  Widget _buildActionCard(BuildContext context, String title, IconData icon, Color color, String route, {bool isDisabled = false, String? disabledMessage}) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, route),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withOpacity(0.12)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  shape: BoxShape.circle,
+        onTap: () {
+          if (isDisabled) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(disabledMessage ?? 'Action unavailable'),
+                backgroundColor: AppColors.error,
+              )
+            );
+            return;
+          }
+          Navigator.pushNamed(context, route);
+        },
+        child: Opacity(
+          opacity: isDisabled ? 0.5 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: color.withOpacity(0.12)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 22),
                 ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title, 
-                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 10),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  title, 
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 10),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ),

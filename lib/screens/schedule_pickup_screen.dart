@@ -700,21 +700,22 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       final lat = _currentPosition?.latitude ?? -1.2921;
       final lng = _currentPosition?.longitude ?? 36.8219;
 
-      // Schedule and get the pickup data back (includes qr_code_id)
-      final pickupData = await _supabaseService.schedulePickup(
-        date: dateStr,
+      // 1. Generate a unique QR code for verification
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final random = (timestamp % 10000).toString().padLeft(4, '0');
+      final qrCodeId = 'GC-$timestamp-$random';
+
+      // 2. Schedule using the new hardened RPC
+      final pickupId = await _supabaseService.schedulePickup(
         wasteType: _categories[_selectedCategoryIndex]['name'],
         address: _addressController.text.trim(),
         latitude: lat,
         longitude: lng,
-        photoUrl: photoUrl,
-        isImmediate: _isImmediate,
-        weightKg: _selectedWeight,
-        costKes: _estimatedCost,
+        date: dateStr,
+        qrCodeId: qrCodeId,
       );
 
-      final qrCodeId = pickupData['qr_code_id'] ?? 'NO-CODE';
-      final pickupId = pickupData['id'].toString();
+      if (pickupId == null) throw Exception('No pickup ID returned');
 
       if (_isImmediate) {
         // Real-time broadcast: Listen for a driver to accept

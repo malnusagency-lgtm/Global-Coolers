@@ -131,76 +131,40 @@ class SupabaseService {
   /// Cancel a scheduled pickup
   Future<void> cancelPickup(String pickupId) async {
     try {
-      await _supabase.from('pickups').update({
-        'status': 'cancelled',
-      }).eq('id', pickupId);
+      await _supabase.rpc('resident_cancel_pickup', params: {
+        'p_pickup_id': pickupId,
+      });
     } catch (e) {
       debugPrint('Cancel Pickup Error: $e');
       rethrow;
     }
   }
 
-  /// Schedules a new waste pickup with real GPS coordinates
-  Future<Map<String, dynamic>> schedulePickup({
-    required String date, 
-    required String wasteType, 
+  Future<String?> schedulePickup({
+    required String wasteType,
     required String address,
-    double? latitude,
-    double? longitude,
-    String? photoUrl,
-    bool isImmediate = false,
-    double weightKg = 1.0,
-    int costKes = 0,
+    required double latitude,
+    required double longitude,
+    required String date,
+    required String qrCodeId,
   }) async {
-
-    final user = _supabase.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
     try {
-      // 1. Verify profile exists (Retry if it was just created by trigger)
-      Map<String, dynamic>? profile;
-      for (int i = 0; i < 3; i++) {
-        try {
-          profile = await getProfile();
-          break;
-        } catch (_) {
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
+      final response = await _supabase.rpc('resident_schedule_pickup', params: {
+        'p_waste_type': wasteType,
+        'p_address': address,
+        'p_latitude': latitude,
+        'p_longitude': longitude,
+        'p_date': date,
+        'p_qr_code_id': qrCodeId,
+      });
+
+      if (response != null && response['success'] == true) {
+        return response['pickup_id'].toString();
+      } else {
+        throw Exception(response?['message'] ?? 'Failed to schedule pickup');
       }
-      
-      if (profile == null) throw Exception('User profile not found. Please try again.');
-      
-      if (profile['role'] != 'resident') {
-        throw Exception('Access denied: Only households can schedule pickups.');
-      }
-
-      // 2. Generate a unique QR code for verification (System -> Assignments)
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = (timestamp % 10000).toString().padLeft(4, '0');
-      final qrCode = 'GC-$timestamp-$random';
-
-      // 3. Insert pickup record (Broadcast as unassigned) and return data
-      final response = await _supabase.from('pickups').insert({
-        'user_id': user.id,
-        'date': date,
-        'waste_type': wasteType,
-        'address': address,
-        'status': 'scheduled',
-        'photo_url': photoUrl,
-        'latitude': latitude,
-        'longitude': longitude,
-        'collector_id': null,
-        'is_assigned': false,
-        'is_immediate': isImmediate,
-        'weight_kg': weightKg,
-        'cost_kes': costKes,
-        'qr_code_id': qrCode, 
-      }).select().single();
-
-      return response;
-
     } catch (e) {
-      debugPrint('SupabaseService Schedule Error: $e');
+      debugPrint('Schedule Pickup Error: $e');
       rethrow;
     }
   }
@@ -296,21 +260,23 @@ class SupabaseService {
   }
 
   /// Collector claims an unassigned pickup
-  Future<void> claimPickup(String pickupId, {String? initialStatus, String? scheduledArrival}) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not logged in');
-
+  Future<void> claimPickup({
+    required String pickupId,
+    String? scheduledArrival,
+    String initialStatus = 'accepted',
+  }) async {
     try {
       final isImmediate = (initialStatus == 'in_transit');
+      
+      final response = await _supabase.rpc('collector_claim_pickup', params: {
+        'p_pickup_id': pickupId,
+        'p_is_immediate': isImmediate,
+        'p_scheduled_arrival': scheduledArrival ?? '',
+      });
 
-      await _supabase.rpc(
-        'collector_claim_pickup',
-        params: {
-          'p_pickup_id': pickupId,
-          'p_is_immediate': isImmediate,
-          'p_scheduled_arrival': scheduledArrival,
-        },
-      );
+      if (response != null && response['success'] == false) {
+        throw Exception(response['message'] ?? 'Claim failed');
+      }
     } catch (e) {
       debugPrint('Claim Pickup Error: $e');
       rethrow;
@@ -320,12 +286,9 @@ class SupabaseService {
   /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
   Future<void> cancelPickupAssignment(String pickupId) async {
     try {
-      await _supabase.from('pickups').update({
-        'collector_id': null,
-        'is_assigned': false,
-        'status': 'scheduled',
-        'scheduled_arrival': null,
-      }).eq('id', pickupId);
+      await _supabase.rpc('collector_cancel_pickup', params: {
+        'p_pickup_id': pickupId,
+      });
     } catch (e) {
       debugPrint('Cancel Assignment Error: $e');
       rethrow;
@@ -333,14 +296,32 @@ class SupabaseService {
   }
 
   /// Collector reschedules an assigned pickup
-  Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
+  Future<void> completePickup({
+    required String pickupId,
+    required String qrCode,
+    required double actualWeightKg,
+  }) async {
     try {
-      await _supabase.from('pickups').update({
-        'scheduled_arrival': newTime,
-        'status': 'accepted', // Reset to accepted if it was in_transit
-      }).eq('id', pickupId);
+      final response = await _supabase.rpc('collector_complete_pickup', params: {
+        'p_pickup_id': pickupId,
+        'p_qr_code': qrCode,
+        'p_actual_weight': actualWeightKg,
+      });
+
+      if (response != null && response['success'] == false) {
+        throw Exception(response['message'] ?? 'Completion failed');
+      }
     } catch (e) {
-      debugPrint('Reschedule Assignment Error: $e');
+      debugPrint('Complete Pickup Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> clearUserHistory() async {
+    try {
+      await _supabase.rpc('user_clear_history');
+    } catch (e) {
+      debugPrint('Clear History Error: $e');
       rethrow;
     }
   }

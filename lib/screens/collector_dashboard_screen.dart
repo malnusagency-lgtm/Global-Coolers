@@ -50,10 +50,14 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       final pos = await _supabaseService.getCurrentPosition();
       if (pos == null) return;
 
+      // 1. Capacity Check: Max 5 active tasks
+      final activeTasks = await _supabaseService.getPendingPickups();
+      if (activeTasks.length >= 5) return;
+
+      // 2. Proximity & Declined Check
       final distance = const Distance();
       final myPoint = LatLng(pos.latitude, pos.longitude);
 
-      // Filter out declined pickups and anything > 25km away
       final availablePickups = pickups.where((p) {
         if (_declinedPickups.contains(p['id'].toString())) return false;
         
@@ -491,7 +495,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(pickup['address'] ?? 'Nearby Pickup', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text('${pickup['waste_type']} ΓÇó ${pickup['weight_kg']}kg', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text('${pickup['waste_type']} • ${pickup['weight_kg']}kg', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             ],
           )),
           ElevatedButton(
@@ -535,7 +539,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(p['address'] ?? 'Task', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('${p['profiles']?['full_name'] ?? 'Resident'} ΓÇó ${p['waste_type']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text('${p['profiles']?['full_name'] ?? 'Resident'} • ${p['waste_type']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 if (p['scheduled_arrival'] != null)
                    Padding(
                      padding: const EdgeInsets.only(top: 4),
@@ -551,14 +555,20 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               IconButton(onPressed: () => _supabaseService.launchMaps(p['latitude'], p['longitude']), icon: const Icon(Icons.directions_rounded, color: AppColors.primary)),
               IconButton(onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {'pickupId': p['id'], 'recipientName': p['profiles']?['full_name']}), icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)),
               const Spacer(),
-              if (status == 'accepted') ...[
+              if (status == 'accepted' || status == 'in_transit' || status == 'arrived') ...[
                 TextButton(
                   onPressed: () => _cancelAssignment(p['id']),
                   child: const Text('Cancel', style: TextStyle(color: AppColors.error)),
                 ),
+                TextButton(
+                  onPressed: () => _showSchedulePicker(p, isReschedule: true),
+                  child: const Text('Reschedule', style: TextStyle(color: AppColors.primary)),
+                ),
                 const SizedBox(width: 8),
-                ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip')),
-              ] else if (status == 'in_transit')
+              ],
+              if (status == 'accepted')
+                ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip'))
+              else if (status == 'in_transit')
                 ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('I\'ve Arrived'))
               else if (status == 'arrived')
                 ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white), child: const Text('Scan Code'))
@@ -605,9 +615,16 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
     }
   }
 
-  void _showSchedulePicker(Map<String, dynamic> pickup) async {
+  void _showSchedulePicker(Map<String, dynamic> pickup, {bool isReschedule = false}) async {
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-    if (time != null) _handleClaim(pickup, arrivalTime: time.format(context));
+    if (time != null) {
+      if (isReschedule) {
+        await _supabaseService.reschedulePickupAssignment(pickup['id'].toString(), time.format(context));
+        setState(() {});
+      } else {
+        _handleClaim(pickup, arrivalTime: time.format(context));
+      }
+    }
   }
 
   Future<void> _updateStatus(dynamic id, String status) async {
@@ -627,17 +644,24 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       );
       return;
     }
-    // ✅ Fixed: Just update status and refresh. DO NOT auto-push QR scanner.
-    // Resident needs to receive the "Arrived" notification first before showing QR.
+    
+    // ✅ Direct and smooth transition
     await _updateStatus(p['id'], 'arrived');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Resident has been notified you arrived! Tap "Scan Code" when they show you the QR.'),
+          content: Text('Arrived! Opening scanner... 📷'),
           backgroundColor: AppColors.success,
-          duration: Duration(seconds: 4),
+          duration: Duration(seconds: 1),
         ),
       );
+      
+      // Delay slightly for the snackbar to be seen, then navigate
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()});
+        }
+      });
     }
   }
 

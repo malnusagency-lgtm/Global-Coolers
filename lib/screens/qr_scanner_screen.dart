@@ -188,7 +188,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                             IconButton(
                               icon: const Icon(Icons.remove_circle, size: 40, color: AppColors.primary),
                               onPressed: () {
-                                if (actualWeight > 0.5) setModalState(() => actualWeight -= 0.5);
+                                if (actualWeight > 0.5) {
+                                  setModalState(() => actualWeight -= 0.5);
+                                  HapticFeedback.selectionClick();
+                                }
                               },
                             ),
                             const SizedBox(width: 20),
@@ -197,7 +200,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                             IconButton(
                               icon: const Icon(Icons.add_circle, size: 40, color: AppColors.primary),
                               onPressed: () {
-                                if (actualWeight < 500) setModalState(() => actualWeight += 0.5);
+                                if (actualWeight < 500) {
+                                  setModalState(() => actualWeight += 0.5);
+                                  HapticFeedback.selectionClick();
+                                }
                               },
                             ),
                           ],
@@ -235,6 +241,26 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                     ),
                   ),
                   
+                  const SizedBox(height: 16),
+
+                  // Points Preview
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _pointPreview('You (Collector)', (actualWeight * 10).round(), AppColors.primary),
+                        Container(width: 1, height: 20, color: Colors.grey.withOpacity(0.2)),
+                        _pointPreview('Resident', (actualWeight * 20).round(), AppColors.teal),
+                      ],
+                    ),
+                  ),
+
                   const SizedBox(height: 32),
 
                   // Action Buttons
@@ -281,6 +307,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                                   actualWeightKg: actualWeight,
                                 );
                                 
+                                // Refresh profile data in background
+                                try {
+                                  if (context.mounted) {
+                                    final userProvider = Provider.of<UserProvider>(this.context, listen: false);
+                                    userProvider.loadUserData();
+                                  }
+                                } catch (e) {
+                                  debugPrint('Profile refresh failed: $e');
+                                }
+                                
                                 if (!mounted) return;
                                 Navigator.pop(ctx);
                                 
@@ -312,9 +348,26 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
                 ],
               ),
             );
+
           },
         );
       },
+    );
+  }
+
+  Widget _pointPreview(String label, int points, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.5)),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Icon(Icons.eco_rounded, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text('+$points', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+      ],
     );
   }
 

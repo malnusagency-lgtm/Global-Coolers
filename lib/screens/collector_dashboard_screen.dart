@@ -191,7 +191,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   Future<void> _handleClaim(Map<String, dynamic> pickup, {String? arrivalTime}) async {
     try {
       await _supabaseService.claimPickup(
-        pickup['id'].toString(),
+        pickupId: pickup['id'].toString(),
         initialStatus: arrivalTime == null ? 'in_transit' : 'accepted',
         scheduledArrival: arrivalTime,
       );

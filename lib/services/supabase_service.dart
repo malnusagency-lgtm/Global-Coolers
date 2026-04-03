@@ -296,23 +296,14 @@ class SupabaseService {
   }
 
   /// Collector reschedules an assigned pickup
-  Future<void> completePickup({
-    required String pickupId,
-    required String qrCode,
-    required double actualWeightKg,
-  }) async {
+  Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
     try {
-      final response = await _supabase.rpc('collector_complete_pickup', params: {
+      await _supabase.rpc('collector_reschedule_pickup', params: {
         'p_pickup_id': pickupId,
-        'p_qr_code': qrCode,
-        'p_actual_weight': actualWeightKg,
+        'p_new_time': newTime,
       });
-
-      if (response != null && response['success'] == false) {
-        throw Exception(response['message'] ?? 'Completion failed');
-      }
     } catch (e) {
-      debugPrint('Complete Pickup Error: $e');
+      debugPrint('Reschedule Error: $e');
       rethrow;
     }
   }

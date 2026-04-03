@@ -102,9 +102,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
       if (!mounted) return;
       Navigator.pop(context); // Pop loading
 
-      // Show bottom sheet to verify actual weight
+      // Show unified completion bottom sheet
       final double estimatedWeight = (pickup['weight_kg'] as num?)?.toDouble() ?? 1.0;
-      _showWeightVerificationSheet(pickup, estimatedWeight, code);
+      _showCompletePickupSheet(pickup, estimatedWeight, code);
 
     } catch (e) {
       if (!mounted) return;
@@ -125,65 +125,189 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
     }
   }
 
-  void _showWeightVerificationSheet(Map<String, dynamic> pickup, double estimatedWeight, String qrCode) {
+  void _showCompletePickupSheet(Map<String, dynamic> pickup, double estimatedWeight, String qrCode) {
     double actualWeight = estimatedWeight;
+    bool paymentConfirmed = false;
+    bool isLoading = false;
+    final int originalCostKes = (pickup['cost_kes'] as num?)?.toInt() ?? 0;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
-                  const SizedBox(height: 20),
-                  const Text('Verify Pickup Weight', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  const SizedBox(height: 8),
-                  Text('Resident estimated ${estimatedWeight}kg. Please confirm the actual physical weight collected.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                  Container(width: 48, height: 6, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
                   const SizedBox(height: 24),
+                  
+                  // Header
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 32, color: AppColors.primary),
-                        onPressed: () {
-                          if (actualWeight > 0.5) setModalState(() => actualWeight -= 0.5);
-                        },
-                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-                        child: Text('${actualWeight} kg', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
+                        child: const Icon(Icons.verified_user_rounded, color: AppColors.primary, size: 28),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 32, color: AppColors.primary),
-                        onPressed: () {
-                          if (actualWeight < 50) setModalState(() => actualWeight += 0.5);
-                        },
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Finalize Pickup', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            Text('Verify weight and confirm payment', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _finalizePickupWithWeight(pickup, actualWeight, qrCode);
-                      },
-                      child: const Text('Confirm & Complete', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+
+                  // Weight Editor
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('Actual Collected Weight', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 1.2)),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle, size: 40, color: AppColors.primary),
+                              onPressed: () {
+                                if (actualWeight > 0.5) setModalState(() => actualWeight -= 0.5);
+                              },
+                            ),
+                            const SizedBox(width: 20),
+                            Text('${actualWeight} kg', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                            const SizedBox(width: 20),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle, size: 40, color: AppColors.primary),
+                              onPressed: () {
+                                if (actualWeight < 500) setModalState(() => actualWeight += 0.5);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Payment Checkbox
+                  GestureDetector(
+                    onTap: () => setModalState(() => paymentConfirmed = !paymentConfirmed),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: paymentConfirmed ? AppColors.success.withOpacity(0.08) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: paymentConfirmed ? AppColors.success.withOpacity(0.3) : Colors.grey.shade300, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(paymentConfirmed ? Icons.check_circle_rounded : Icons.radio_button_unchecked, color: paymentConfirmed ? AppColors.success : Colors.grey, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Payment Received', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text('Collected KES $originalCostKes from resident', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+
+                  // Action Buttons
+                  if (isLoading)
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: CircularProgressIndicator(color: AppColors.primary))
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              setState(() => _isScanning = true);
+                            },
+                            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: paymentConfirmed ? AppColors.primary : Colors.grey.shade300,
+                              foregroundColor: Colors.white,
+                              elevation: paymentConfirmed ? 8 : 0,
+                              shadowColor: AppColors.primary.withOpacity(0.4),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            onPressed: paymentConfirmed ? () async {
+                              setModalState(() => isLoading = true);
+                              try {
+                                final residentPoints = (actualWeight * 20).round();
+                                final collectorPoints = (actualWeight * 10).round();
+                                
+                                await _supabaseService.completePickup(
+                                  pickupId: pickup['id'].toString(),
+                                  qrCode: qrCode,
+                                  actualWeightKg: actualWeight,
+                                );
+                                
+                                if (!mounted) return;
+                                Navigator.pop(ctx);
+                                
+                                Navigator.pushReplacementNamed(
+                                  this.context,
+                                  '/pickup-complete',
+                                  arguments: {
+                                    'residentName': pickup['profiles']?['full_name'] ?? 'Resident',
+                                    'wasteType': pickup['waste_type'] ?? 'Waste',
+                                    'collectorPoints': collectorPoints,
+                                    'residentPoints': residentPoints,
+                                    'weightKg': actualWeight,
+                                    'costKes': originalCostKes,
+                                    'pickupId': pickup['id'].toString(),
+                                  },
+                                );
+                              } catch (e) {
+                                setModalState(() => isLoading = false);
+                                Navigator.pop(ctx);
+                                _showErrorDialog('Completion Failed', e.toString().replaceAll('Exception: ', ''));
+                              }
+                            } : null,
+                            child: const Text('Complete & Earn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -191,234 +315,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> with TickerProviderSt
           },
         );
       },
-    );
-  }
-
-  Future<void> _finalizePickupWithWeight(Map<String, dynamic> pickup, double confirmedWeightKg, String qrCode) async {
-    // Step 1: Payment Confirmation
-    final bool? paymentConfirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.payments_rounded, color: AppColors.amber),
-            SizedBox(width: 8),
-            Text('Confirm Payment'),
-          ],
-        ),
-        content: Text('Have you received the payment of KES ${pickup['cost_kes'] ?? 0} from ${pickup['profiles']?['full_name'] ?? 'the resident'}?\n\nPoints will be awarded to both of you only after you confirm receipt of payment.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Not Yet', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Yes, Payment Received', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (paymentConfirmed != true) return;
-
-    try {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-      );
-
-      // Re-calculate based on confirmed weight
-      final int originalCostKes = (pickup['cost_kes'] as num?)?.toInt() ?? 0;
-      final int residentPoints = (confirmedWeightKg * 20).round();
-      final int collectorPoints = (confirmedWeightKg * 10).round();
-
-      await _supabaseService.completePickup(
-        pickupId: pickup['id'].toString(),
-        qrCode: qrCode,
-        actualWeightKg: confirmedWeightKg,
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context); // Pop loading
-
-      _showSuccessDialog(
-        residentName: pickup['profiles']?['full_name'] ?? 'Resident',
-        wasteType: pickup['waste_type'] ?? 'Waste',
-        pointsAwarded: collectorPoints,
-        residentPoints: residentPoints,
-        weightKg: confirmedWeightKg,
-        costKes: originalCostKes,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Pop loading
-      _showErrorDialog('Completion Failed', e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  void _showSuccessDialog({
-    required String residentName,
-    required String wasteType,
-    required int pointsAwarded,
-    int residentPoints = 0,
-    double weightKg = 1.0,
-    int costKes = 0,
-  }) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Animated checkmark
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle, color: AppColors.success, size: 56),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Pickup Verified! 🎉',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$residentName\'s $wasteType pickup (${weightKg % 1 == 0 ? weightKg.toInt() : weightKg}kg) completed.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-
-              // Earnings breakdown
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    _earningsRow('Pickup Value', 'KES $costKes', AppColors.textPrimary),
-                    const SizedBox(height: 10),
-                    _earningsRow('Your Earnings', '+$pointsAwarded pts', AppColors.primary),
-                    const SizedBox(height: 10),
-                    _earningsRow('Resident Earned', '+$residentPoints pts', AppColors.teal),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Your points chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.stars_rounded, color: Colors.white, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      '+$pointsAwarded EcoPoints Earned!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        setState(() => _isScanning = true);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.primary),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Scan Another', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        // ✅ Navigate to real completion screen with actual data
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/pickup-complete',
-                          arguments: {
-                            'residentName': residentName,
-                            'wasteType': wasteType,
-                            'collectorPoints': pointsAwarded,
-                            'residentPoints': residentPoints,
-                            'weightKg': weightKg,
-                            'costKes': costKes,
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('View Results →', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx); // Close dialog
-                    Navigator.pushReplacementNamed(context, '/rewards');
-                  },
-                  icon: const Icon(Icons.card_giftcard_rounded, color: AppColors.primary, size: 20),
-                  label: const Text('Explore Rewards', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: AppColors.primary.withOpacity(0.05),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-      ),
     );
   }
 

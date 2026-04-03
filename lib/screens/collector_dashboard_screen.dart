@@ -80,107 +80,145 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
   void _showNewRequestOverlay(Map<String, dynamic> pickup) {
     if (!mounted) return;
+    TimeOfDay? selectedTime;
     
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
-          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, spreadRadius: 5)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.local_shipping_rounded, color: AppColors.primary, size: 30),
+      builder: (context) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, spreadRadius: 5)],
             ),
-            const SizedBox(height: 20),
-            const Text('New Request Available!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-            const SizedBox(height: 8),
-            Text(
-              'A resident near you needs a ${pickup['waste_type']} collection.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
-            ),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.withOpacity(0.1)),
-              ),
-              child: Row(
-                children: [
-                   const Icon(Icons.location_on_rounded, color: AppColors.error, size: 20),
-                   const SizedBox(width: 12),
-                   Expanded(
-                     child: Text(
-                       pickup['address'] ?? 'Nearby Location',
-                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                       maxLines: 1,
-                       overflow: TextOverflow.ellipsis,
-                     ),
-                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () {
-                      _declinedPickups.add(pickup['id'].toString());
-                      Navigator.pop(context);
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    ),
-                    child: const Text('Decline', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.local_shipping_rounded, color: AppColors.primary, size: 30),
+                ),
+                const SizedBox(height: 20),
+                const Text('New Request Available!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                const SizedBox(height: 8),
+                Text(
+                  'A resident near you needs a ${pickup['waste_type']} collection.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                ),
+                const SizedBox(height: 28),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                       const Icon(Icons.location_on_rounded, color: AppColors.error, size: 20),
+                       const SizedBox(width: 12),
+                       Expanded(
+                         child: Text(
+                           pickup['address'] ?? 'Nearby Location',
+                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                           maxLines: 1,
+                           overflow: TextOverflow.ellipsis,
+                         ),
+                       ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await _handleClaim(pickup);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      elevation: 8,
-                      shadowColor: AppColors.primary.withOpacity(0.4),
+                const SizedBox(height: 16),
+                
+                // Inline Reschedule Option
+                GestureDetector(
+                  onTap: () async {
+                    final time = await showTimePicker(context: ctx, initialTime: TimeOfDay.now());
+                    if (time != null) {
+                      setModalState(() => selectedTime = time);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: selectedTime != null ? AppColors.primary.withOpacity(0.08) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: selectedTime != null ? AppColors.primary.withOpacity(0.3) : Colors.grey.shade200),
                     ),
-                    child: const Text('Accept & Start', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.schedule_rounded, color: selectedTime != null ? AppColors.primary : Colors.grey),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedTime != null ? 'Scheduled: ${selectedTime!.format(context)}' : 'Accept Immediately',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: selectedTime != null ? AppColors.primary : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          selectedTime != null ? 'Change' : 'Schedule',
+                          style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+                
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () {
+                          // Already added to declined list when it appeared
+                          Navigator.pop(ctx);
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                        child: const Text('Decline', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await _handleClaim(pickup, arrivalTime: selectedTime?.format(context));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          elevation: 8,
+                          shadowColor: AppColors.primary.withOpacity(0.4),
+                        ),
+                        child: Text(selectedTime != null ? 'Accept Task' : 'Start Now', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                _showSchedulePicker(pickup);
-              },
-              child: const Text('Schedule for Later', style: TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.w500)),
-            ),
-          ],
+          ),
         ),
       ),
     ).whenComplete(() {

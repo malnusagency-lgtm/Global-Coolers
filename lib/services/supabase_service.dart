@@ -42,6 +42,12 @@ class SupabaseService {
     await _supabase.from('profiles').update(updates).eq('id', userId);
   }
 
+  Future<void> updateOnlineStatus(bool isOnline) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
+  }
+
   // ========================= GPS & GEO =========================
 
   Future<Position?> getCurrentPosition() async {
@@ -53,7 +59,33 @@ class SupabaseService {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return null;
     }
-    return await Geolocator.getCurrentPosition();
+    return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+  }
+
+  Future<void> updateLocation(double lat, double lng) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('profiles').update({
+      'latitude': lat,
+      'longitude': lng,
+      'last_active_at': DateTime.now().toIso8601String(),
+    }).eq('id', userId);
+  }
+
+  Future<void> updateLocationFromGps() async {
+    final pos = await getCurrentPosition();
+    if (pos != null) await updateLocation(pos.latitude, pos.longitude);
+  }
+
+  Stream<Map<String, dynamic>> streamLocation(String userId) {
+    return _supabase.from('profiles').stream(primaryKey: ['id']).eq('id', userId).map((list) => list.first);
+  }
+
+  Future<bool> isNearLocation(double targetLat, double targetLng, {double thresholdMeters = 100}) async {
+    final pos = await getCurrentPosition();
+    if (pos == null) return false;
+    final dist = Geolocator.distanceBetween(pos.latitude, pos.longitude, targetLat, targetLng);
+    return dist <= thresholdMeters;
   }
 
   Future<String?> reverseGeocode(double lat, double lng) async {
@@ -68,33 +100,72 @@ class SupabaseService {
     return null;
   }
 
+  // ========================= ADDRESSES =========================
+
+  Future<List<Map<String, dynamic>>> getUserAddresses() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    final res = await _supabase.from('addresses').select().eq('user_id', userId).order('created_at');
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<Map<String, dynamic>?> getDefaultAddress() async {
+    final addresses = await getUserAddresses();
+    if (addresses.isEmpty) return null;
+    return addresses.firstWhere((a) => a['is_default'] == true, orElse: () => addresses.first);
+  }
+
+  Future<void> saveUserAddress(Map<String, dynamic> addressData) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('addresses').insert({...addressData, 'user_id': userId});
+  }
+
+  Future<void> updateUserAddress(String id, Map<String, dynamic> data) async {
+    await _supabase.from('addresses').update(data).eq('id', id);
+  }
+
+  Future<void> deleteUserAddress(String id) async {
+    await _supabase.from('addresses').delete().eq('id', id);
+  }
+
+  Future<void> setDefaultAddress(String id) async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('addresses').update({'is_default': false}).eq('user_id', userId);
+    await _supabase.from('addresses').update({'is_default': true}).eq('id', id);
+  }
+
   // ========================= PICKUPS =========================
+
+  Future<List<Map<String, dynamic>>> getPickups() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    final res = await _supabase.from('pickups').select().order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(res);
+  }
 
   Stream<List<Map<String, dynamic>>> streamResidentActivePickups() {
     final userId = currentUser?.id;
     if (userId == null) return const Stream.empty();
 
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', userId)
-        .asyncMap((list) async {
-          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
-          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
-          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
-          
-          for (var pickup in active) {
-            if (pickup['collector_id'] != null) {
-              try {
-                final collector = await getProfileById(pickup['collector_id']);
-                pickup['collector_name'] = collector['full_name'];
-              } catch (_) {
-                pickup['collector_name'] = 'A Collector';
-              }
-            }
+    return _supabase.from('pickups').stream(primaryKey: ['id']).eq('user_id', userId).asyncMap((list) async {
+      const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+      final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
+      active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+
+      for (var pickup in active) {
+        if (pickup['collector_id'] != null) {
+          try {
+            final collector = await getProfileById(pickup['collector_id']);
+            pickup['collector_name'] = collector['full_name'];
+          } catch (_) {
+            pickup['collector_name'] = 'A Collector';
           }
-          return active.cast<Map<String, dynamic>>();
-        });
+        }
+      }
+      return active.cast<Map<String, dynamic>>();
+    });
   }
 
   Stream<Map<String, dynamic>?> streamActivePickupForResident() {
@@ -106,32 +177,26 @@ class SupabaseService {
   }
 
   Stream<List<Map<String, dynamic>>> streamUnassignedPickups() {
-    return _supabase
-        .from('pickups')
-        .stream(primaryKey: ['id'])
-        .eq('status', 'scheduled')
-        .map((list) => list.where((p) => p['collector_id'] == null).toList());
+    return _supabase.from('pickups').stream(primaryKey: ['id']).eq('status', 'scheduled').map((list) => list.where((p) => p['collector_id'] == null).toList());
+  }
+
+  Future<List<Map<String, dynamic>>> getUnassignedPickupsNearby(double lat, double lng, {double radiusKm = 10.0}) async {
+    final res = await _supabase.rpc('get_nearby_pickups', params: {
+      'p_lat': lat,
+      'p_lng': lng,
+      'p_radius_km': radiusKm,
+    });
+    return List<Map<String, dynamic>>.from(res);
   }
 
   Future<List<Map<String, dynamic>>> getPendingPickups() async {
     final userId = currentUser?.id;
     if (userId == null) return [];
-    final res = await _supabase
-        .from('pickups')
-        .select('*, profiles:profiles!pickups_user_id_fkey(full_name)')
-        .eq('collector_id', userId)
-        .neq('status', 'completed');
+    final res = await _supabase.from('pickups').select('*, profiles:profiles!pickups_user_id_fkey(full_name)').eq('collector_id', userId).neq('status', 'completed');
     return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<void> schedulePickup({
-    required String wasteType,
-    required String address,
-    required double latitude,
-    required double longitude,
-    required String date,
-    required String qrCodeId,
-  }) async {
+  Future<void> schedulePickup({required String wasteType, required String address, required double latitude, required double longitude, required String date, required String qrCodeId}) async {
     await _supabase.rpc('resident_schedule_pickup', params: {
       'p_waste_type': wasteType,
       'p_address': address,
@@ -154,8 +219,20 @@ class SupabaseService {
     await _supabase.rpc('resident_cancel_pickup', params: {'p_pickup_id': pickupId});
   }
 
+  Future<void> collectorCancelPickup(String pickupId) async {
+    await _supabase.rpc('collector_cancel_pickup', params: {'p_pickup_id': pickupId});
+  }
+
+  Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
+    await _supabase.from('pickups').update({'scheduled_arrival': newTime}).eq('id', pickupId);
+  }
+
+  Future<void> updatePickupStatus(String pickupId, String status) async {
+    await _supabase.from('pickups').update({'status': status}).eq('id', pickupId);
+  }
+
   Future<void> markPickupArrived(String pickupId) async {
-    await _supabase.from('pickups').update({'status': 'arrived'}).eq('id', pickupId);
+    await updatePickupStatus(pickupId, 'arrived');
   }
 
   Future<void> completePickup({required String pickupId, required String qrCode, double? actualWeightKg}) async {
@@ -164,6 +241,12 @@ class SupabaseService {
       'p_qr_code': qrCode,
       'p_actual_weight': actualWeightKg,
     });
+  }
+
+  Future<Map<String, dynamic>> verifyPickupByQr(String qrCode) async {
+    final res = await _supabase.from('pickups').select().eq('qr_code_id', qrCode).maybeSingle();
+    if (res == null) throw Exception('Invalid QR Code');
+    return res;
   }
 
   // ========================= REWARDS =========================
@@ -176,13 +259,26 @@ class SupabaseService {
   Future<void> redeemReward(String rewardId, int pointsCost, String mpesaNumber) async {
     final userId = currentUser?.id;
     if (userId == null) return;
-    await _supabase.from('redemptions').insert({
-      'user_id': userId,
-      'reward_id': rewardId,
-      'points_spent': pointsCost,
-      'mpesa_number': mpesaNumber,
-      'status': 'pending',
-    });
+    await _supabase.from('redemptions').insert({'user_id': userId, 'reward_id': rewardId, 'points_spent': pointsCost, 'mpesa_number': mpesaNumber, 'status': 'pending'});
+  }
+
+  // ========================= NOTIFICATIONS =========================
+
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final userId = currentUser?.id;
+    if (userId == null) return [];
+    final res = await _supabase.from('notifications').select().eq('user_id', userId).order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _supabase.from('notifications').update({'is_read': true}).eq('id', id);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('notifications').update({'is_read': true}).eq('user_id', userId);
   }
 
   // ========================= RATINGS =========================
@@ -194,13 +290,7 @@ class SupabaseService {
     final pickup = await _supabase.from('pickups').select().eq('id', pickupId).single();
     final revieweeId = pickup['collector_id'] ?? pickup['user_id'];
 
-    await _supabase.from('reviews').insert({
-      'pickup_id': pickupId,
-      'reviewer_id': userId,
-      'reviewee_id': revieweeId,
-      'rating': rating,
-      'comment': comment,
-    });
+    await _supabase.from('reviews').insert({'pickup_id': pickupId, 'reviewer_id': userId, 'reviewee_id': revieweeId, 'rating': rating, 'comment': comment});
     await _supabase.from('pickups').update({'rating': rating}).eq('id', pickupId);
   }
 
@@ -209,13 +299,7 @@ class SupabaseService {
   Future<void> submitReport({required String issueType, required String location, required String description, String? photoUrl}) async {
     final userId = currentUser?.id;
     if (userId == null) return;
-    await _supabase.from('reports').insert({
-      'user_id': userId,
-      'issue_type': issueType,
-      'location': location,
-      'description': description,
-      'photo_url': photoUrl,
-    });
+    await _supabase.from('reports').insert({'user_id': userId, 'issue_type': issueType, 'location': location, 'description': description, 'photo_url': photoUrl});
   }
 
   // ========================= CHALLENGES =========================
@@ -251,7 +335,7 @@ class SupabaseService {
     final userId = currentUser?.id;
     if (userId == null) return {};
     final pickups = await _supabase.from('pickups').select('waste_type, weight_kg').eq('user_id', userId).eq('status', 'completed');
-    
+
     final breakdown = <String, double>{};
     for (var p in pickups) {
       final type = p['waste_type'] ?? 'Other';
@@ -268,11 +352,20 @@ class SupabaseService {
     return res.length;
   }
 
+  Future<Map<String, dynamic>> getCollectorStats() async {
+    final profile = await getProfile();
+    return {
+      'eco_points': profile['eco_points'] ?? 0,
+      'total_collections': profile['total_collections'] ?? 0,
+      'rating': profile['rating'] ?? 0.0,
+    };
+  }
+
   Future<Map<String, dynamic>> getCollectorEarningsDetailed() async {
     final userId = currentUser?.id;
     if (userId == null) return {'completed': [], 'total_earnings': 0, 'total_points': 0};
     final completed = await _supabase.from('pickups').select().eq('collector_id', userId).eq('status', 'completed');
-    
+
     int totalEarnings = 0;
     for (var p in completed) {
       totalEarnings += ((p['cost_kes'] ?? 0) as num).toInt();
@@ -280,11 +373,32 @@ class SupabaseService {
     return {'completed': completed, 'total_earnings': totalEarnings};
   }
 
+  Future<List<Map<String, dynamic>>> getLeaderboard({String period = 'all'}) async {
+    final res = await _supabase.from('profiles').select('full_name, eco_points').order('eco_points', ascending: false).limit(50);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
   // ========================= REFERRAL =========================
 
   Future<String> getReferralCode() async {
     final profile = await getProfile();
     return profile['referral_code'] ?? 'GC-WELCOME';
+  }
+
+  // ========================= STORAGE =========================
+
+  Future<String?> uploadWastePhoto(Uint8List bytes, String ext) async {
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _supabase.storage.from('waste-photos').uploadBinary(fileName, bytes);
+    return _supabase.storage.from('waste-photos').getPublicUrl(fileName);
+  }
+
+  // ========================= APP MAINTENANCE =========================
+
+  Future<void> clearUserHistory() async {
+    final userId = currentUser?.id;
+    if (userId == null) return;
+    await _supabase.from('pickups').delete().eq('user_id', userId).eq('status', 'completed');
   }
 
   // ========================= MAPS =========================

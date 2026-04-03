@@ -203,11 +203,26 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<List<Map<String, dynamic>>> getPendingPickups() async {
+  Stream<List<Map<String, dynamic>>> streamPendingPickups() {
     final userId = currentUser?.id;
-    if (userId == null) return [];
-    final res = await _supabase.from('pickups').select('*, profiles:profiles!pickups_user_id_fkey(full_name)').eq('collector_id', userId).neq('status', 'completed');
-    return List<Map<String, dynamic>>.from(res);
+    if (userId == null) return const Stream.empty();
+    
+    return _supabase.from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('collector_id', userId)
+        .asyncMap((list) async {
+          final active = list.where((p) => p['status'] != 'completed' && p['status'] != 'cancelled' && p['status'] != 'archived').toList();
+          
+          for (var pickup in active) {
+             try {
+                final resident = await getProfileById(pickup['user_id']);
+                pickup['profiles'] = {'full_name': resident['full_name']};
+             } catch (_) {
+                pickup['profiles'] = {'full_name': 'Resident'};
+             }
+          }
+          return active;
+        });
   }
 
   Future<String?> schedulePickup({required String wasteType, required String address, required double latitude, required double longitude, required String date, required String qrCodeId}) async {
@@ -219,7 +234,11 @@ class SupabaseService {
       'p_date': date,
       'p_qr': qrCodeId,
     });
-    return res?.toString();
+    
+    if (res is Map && res.containsKey('pickup_id')) {
+      return res['pickup_id'].toString();
+    }
+    return null;
   }
 
   Future<void> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {

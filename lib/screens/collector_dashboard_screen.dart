@@ -608,10 +608,10 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
   Widget _buildPickupQueue(UserProvider provider) {
     if (!provider.isOnline) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Assigned tasks are hidden while offline.', style: TextStyle(color: AppColors.textSecondary))));
 
-    return FutureBuilder<List<dynamic>>(
-      future: _supabaseService.getPendingPickups(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabaseService.streamPendingPickups(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         final pickups = snapshot.data ?? [];
         if (pickups.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No active tasks. Claim one to begin.', style: TextStyle(color: AppColors.textSecondary))));
         
@@ -654,6 +654,11 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               IconButton(onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {'pickupId': p['id'], 'recipientName': p['profiles']?['full_name']}), icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)),
               const Spacer(),
               if (status == 'accepted' || status == 'in_transit' || status == 'arrived') ...[
+                TextButton(
+                  onPressed: () => _cancelAssignment(p['id']),
+                  child: const Text('Cancel Request', style: TextStyle(color: AppColors.error, fontSize: 13)),
+                ),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => _showSchedulePicker(p, isReschedule: true),
                   child: const Text('Reschedule', style: TextStyle(color: AppColors.primary, fontSize: 13)),

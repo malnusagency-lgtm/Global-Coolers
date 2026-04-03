@@ -262,31 +262,21 @@ class SupabaseService {
     }
   }
 
-  /// Collector claims an unassigned pickup
-  Future<void> claimPickup({
-    required String pickupId,
-    String? scheduledArrival,
-    String initialStatus = 'accepted',
-  }) async {
+  /// Collector accepts/claims a pickup using the secure RPC
+  Future<Map<String, dynamic>> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
     try {
-      final isImmediate = (initialStatus == 'in_transit');
-      
       final response = await _supabase.rpc('collector_claim_pickup', params: {
         'p_pickup_id': pickupId,
-        'p_mode': isImmediate ? 'immediate' : 'scheduled',
-        'p_scheduled_arrival': scheduledArrival ?? '',
+        'p_mode': immediate ? 'immediate' : 'scheduled',
+        'p_scheduled_arrival': arrivalTime,
       });
-
-      if (response != null && response['success'] == false) {
-        throw Exception(response['message'] ?? 'Claim failed');
-      }
+      return response as Map<String, dynamic>? ?? {'success': true};
     } catch (e) {
       debugPrint('Claim Pickup Error: $e');
       rethrow;
     }
   }
 
-  /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
   /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
   Future<Map<String, dynamic>> collectorCancelPickup(String pickupId) async {
     try {
@@ -588,21 +578,6 @@ class SupabaseService {
     }).eq('id', userId);
   }
 
-  /// Collector accepts/claims a pickup using the secure RPC (Step 4 of plan)
-  Future<Map<String, dynamic>> claimPickup(String pickupId, {bool immediate = true, String? arrivalTime}) async {
-    try {
-      final response = await _supabase.rpc('collector_claim_pickup', params: {
-        'p_pickup_id': pickupId,
-        'p_mode': immediate ? 'immediate' : 'scheduled',
-        'p_scheduled_arrival': arrivalTime,
-      });
-      return response as Map<String, dynamic>? ?? {'success': true};
-    } catch (e) {
-      debugPrint('Claim Pickup Error: $e');
-      rethrow;
-    }
-  }
-
   Future<List<dynamic>> getLeaderboard({String sortBy = 'eco_points', bool isNeighborhood = false}) async {
     if (isNeighborhood) {
       return getNeighborhoodLeaderboard(sortBy: sortBy);
@@ -641,6 +616,77 @@ class SupabaseService {
     }
   }
 
+  /// Streams all active pickups for the resident (scheduled, accepted, in_transit, arrived)
+  Stream<List<Map<String, dynamic>>> streamResidentActivePickups() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return const Stream.empty();
+
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .asyncMap((list) async {
+          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
+          
+          // Sort by creation time (most recent first)
+          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+          
+          // Attach collector names if assigned
+          for (var pickup in active) {
+            if (pickup['collector_id'] != null) {
+              try {
+                final collector = await _supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', pickup['collector_id'])
+                    .single();
+                pickup['collector_name'] = collector['full_name'];
+              } catch (e) {
+                pickup['collector_name'] = 'A Collector';
+              }
+            }
+          }
+          return active.cast<Map<String, dynamic>>();
+        });
+  }
+
+  /// Streams the resident's single latest active pickup for the top tracker
+  Stream<Map<String, dynamic>?> streamActivePickupForResident() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return const Stream.empty();
+
+    // Strategy: Stream pickups, but if a collector is assigned, we fetch their name via a separate call or cached logic
+    return _supabase
+        .from('pickups')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .asyncMap((list) async {
+          const activeStatuses = ['scheduled', 'accepted', 'in_transit', 'arrived'];
+          final active = list.where((p) => activeStatuses.contains(p['status'])).toList();
+          if (active.isEmpty) return null;
+          
+          // Most recent first
+          active.sort((a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+          final pickup = Map<String, dynamic>.from(active.first);
+
+          // If a collector is assigned, let's try to get their name
+          if (pickup['collector_id'] != null) {
+            try {
+              final collector = await _supabase
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('id', pickup['collector_id'])
+                  .single();
+              pickup['collector_name'] = collector['full_name'];
+            } catch (e) {
+              pickup['collector_name'] = 'A Collector';
+            }
+          }
+          
+          return pickup;
+        });
+  }
 
   Future<List<dynamic>> getPendingPickups() async {
     final userId = _supabase.auth.currentUser?.id;

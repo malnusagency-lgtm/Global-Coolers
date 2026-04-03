@@ -72,6 +72,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
       if (availablePickups.isNotEmpty && mounted && !_isShowingRequest) {
         final newRequest = availablePickups.first;
         _isShowingRequest = true; // SET IMMEDIATELY TO PREVENT DUPLICATES
+        _declinedPickups.add(newRequest['id'].toString()); // Prevent this specific pickup from triggering the modal again
         _showNewRequestOverlay(newRequest);
       }
     });
@@ -550,6 +551,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
             ],
           ),
           const SizedBox(height: 16),
+          const SizedBox(height: 16),
           Row(
             children: [
               IconButton(onPressed: () => _supabaseService.launchMaps(p['latitude'], p['longitude']), icon: const Icon(Icons.directions_rounded, color: AppColors.primary)),
@@ -557,21 +559,28 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
               const Spacer(),
               if (status == 'accepted' || status == 'in_transit' || status == 'arrived') ...[
                 TextButton(
-                  onPressed: () => _cancelAssignment(p['id']),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.error)),
-                ),
-                TextButton(
                   onPressed: () => _showSchedulePicker(p, isReschedule: true),
-                  child: const Text('Reschedule', style: TextStyle(color: AppColors.primary)),
+                  child: const Text('Reschedule', style: TextStyle(color: AppColors.primary, fontSize: 13)),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
               ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (status == 'accepted' || status == 'in_transit' || status == 'arrived')
+                TextButton(
+                  onPressed: () => _cancelAssignment(p['id']),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 13)),
+                ),
+              const Spacer(),
               if (status == 'accepted')
-                ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip'))
+                Expanded(child: ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip', maxLines: 1, overflow: TextOverflow.ellipsis)))
               else if (status == 'in_transit')
-                ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('I\'ve Arrived'))
+                Expanded(child: ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('I\'ve Arrived', maxLines: 1, overflow: TextOverflow.ellipsis)))
               else if (status == 'arrived')
-                ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white), child: const Text('Scan Code'))
+                Expanded(child: ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white), child: const Text('Scan Code', maxLines: 1, overflow: TextOverflow.ellipsis)))
             ],
           )
         ],

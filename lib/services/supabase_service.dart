@@ -270,7 +270,7 @@ class SupabaseService {
       
       final response = await _supabase.rpc('collector_claim_pickup', params: {
         'p_pickup_id': pickupId,
-        'p_is_immediate': isImmediate,
+        'p_mode': isImmediate ? 'immediate' : 'scheduled',
         'p_scheduled_arrival': scheduledArrival ?? '',
       });
 
@@ -596,19 +596,24 @@ class SupabaseService {
     if (userId == null) return {'count': 0, 'earnings': 0};
     
     try {
-      // 1. Get count of completed pickups
+      // 1. Get completed pickups for count and earnings (KES)
       final countResponse = await _supabase
           .from('pickups')
-          .select('id')
+          .select('id, cost_kes')
           .eq('status', 'completed')
           .eq('collector_id', userId);
       
-      // 2. Get real eco_points from profile as "earnings"
-      final profile = await getProfile();
+      final list = countResponse as List<dynamic>;
+      double totalEarnings = 0;
+      for (var p in list) {
+        if (p['cost_kes'] != null) {
+          totalEarnings += (p['cost_kes'] as num).toDouble();
+        }
+      }
       
       return {
-        'count': (countResponse as List).length,
-        'earnings': profile['eco_points'] ?? 0
+        'count': list.length,
+        'earnings': totalEarnings
       };
     } catch (e) {
       debugPrint('Get Collector Stats Error: $e');

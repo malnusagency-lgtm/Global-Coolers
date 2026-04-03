@@ -106,7 +106,16 @@ class _HomeScreenState extends State<HomeScreen> {
             if (index == 2) Navigator.pushNamed(context, '/rewards');
             if (index == 3) Navigator.pushNamed(context, '/profile');
           } else {
-            if (index == 1) Navigator.pushNamed(context, '/schedule-pickup');
+            if (index == 1) {
+              final active = _activePickup != null;
+              if (active) {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('You already have an active pickup.'), backgroundColor: AppColors.error)
+                );
+              } else {
+                Navigator.pushNamed(context, '/schedule-pickup');
+              }
+            }
             if (index == 2) Navigator.pushNamed(context, '/rewards');
             if (index == 3) Navigator.pushNamed(context, '/profile');
           }
@@ -328,21 +337,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          if (status == 'arrived')
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              child: ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, '/pickup-history'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: const Text('Show QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Column(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pushNamed(context, '/chat', arguments: {
+                  'pickupId': pickup['id'], 
+                  'recipientName': collectorName,
+                }), 
+                icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)
               ),
-            ),
+              if (status == 'arrived')
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/pickup-history'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Show QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -458,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildStatusChip(pickup['status'] ?? 'scheduled'),
                 const SizedBox(height: 6),
-                if ((pickup['status'] ?? 'scheduled') == 'scheduled')
+                if (status == 'scheduled' || status == 'accepted')
                   GestureDetector(
                     onTap: () => _showCancelDialog(pickup),
                     child: Container(

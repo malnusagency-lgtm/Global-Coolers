@@ -665,12 +665,30 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                   child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 13)),
                 ),
               const Spacer(),
-              if (status == 'accepted')
-                Expanded(child: ElevatedButton(onPressed: () => _updateStatus(p['id'], 'in_transit'), child: const Text('Start Trip', maxLines: 1, overflow: TextOverflow.ellipsis)))
-              else if (status == 'in_transit')
-                Expanded(child: ElevatedButton(onPressed: () => _checkArrival(p), style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white), child: const Text('I\'ve Arrived', maxLines: 1, overflow: TextOverflow.ellipsis)))
+              if (status == 'accepted' || status == 'in_transit')
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _checkArrival(p), 
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success, 
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                    ), 
+                    child: const Text('I\'ve Arrived', maxLines: 1, overflow: TextOverflow.ellipsis)
+                  )
+                )
               else if (status == 'arrived')
-                Expanded(child: ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, foregroundColor: Colors.white), child: const Text('Scan Code', maxLines: 1, overflow: TextOverflow.ellipsis)))
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/qr-scanner', arguments: {'pickupId': p['id'].toString()}), 
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.teal, 
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                    ), 
+                    child: const Text('Scan QR to Earn', maxLines: 1, overflow: TextOverflow.ellipsis)
+                  )
+                )
             ],
           )
         ],

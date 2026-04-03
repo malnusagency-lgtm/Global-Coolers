@@ -540,7 +540,7 @@ class SupabaseService {
     await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
   }
 
-  Future<bool> isNearLocation(double targetLat, double targetLng, {double radiusMeters = 200}) async {
+  Future<bool> isNearLocation(double targetLat, double targetLng, {double radiusMeters = 1000}) async {
     final pos = await getCurrentPosition();
     if (pos == null) return false;
     

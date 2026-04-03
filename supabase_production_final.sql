@@ -125,3 +125,59 @@ BEGIN
     RETURN json_build_object('success', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. RESIDENT: CANCEL PICKUP
+CREATE OR REPLACE FUNCTION public.resident_cancel_pickup(p_pickup_id UUID)
+RETURNS JSON AS $$
+DECLARE
+    v_pickup RECORD;
+BEGIN
+    -- Check ownership and current status
+    SELECT * INTO v_pickup FROM public.pickups 
+    WHERE id = p_pickup_id AND user_id = auth.uid();
+
+    IF NOT FOUND THEN RETURN json_build_object('success', false, 'message', 'Pickup not found'); END IF;
+    IF v_pickup.status IN ('completed', 'cancelled', 'archived') THEN 
+        RETURN json_build_object('success', false, 'message', 'Cannot cancel in current status'); 
+    END IF;
+
+    -- Update to cancelled
+    UPDATE public.pickups
+    SET status = 'cancelled', is_assigned = false, collector_id = NULL
+    WHERE id = p_pickup_id;
+
+    -- Notify collector if assigned
+    IF v_pickup.collector_id IS NOT NULL THEN
+        INSERT INTO public.notifications (user_id, title, message, type)
+        VALUES (v_pickup.collector_id, 'Pickup Cancelled By Resident 🛑', 'The resident has cancelled the scheduled collection.', 'error');
+    END IF;
+
+    RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. COLLECTOR: CANCEL PICKUP ASSIGNMENT
+CREATE OR REPLACE FUNCTION public.collector_cancel_pickup(p_pickup_id UUID)
+RETURNS JSON AS $$
+DECLARE
+    v_pickup RECORD;
+BEGIN
+    -- Check assignment
+    SELECT * INTO v_pickup FROM public.pickups 
+    WHERE id = p_pickup_id AND collector_id = auth.uid();
+
+    IF NOT FOUND THEN RETURN json_build_object('success', false, 'message', 'Pickup not found'); END IF;
+    
+    -- Return to 'scheduled' status so others can claim it
+    UPDATE public.pickups
+    SET status = 'scheduled', is_assigned = false, collector_id = NULL, scheduled_arrival = NULL
+    WHERE id = p_pickup_id;
+
+    -- Notify Resident
+    INSERT INTO public.notifications (user_id, title, message, type)
+    VALUES (v_pickup.user_id, 'Collector Rescheduling 📡', 'The assigned collector is no longer available. Your request is back in the queue.', 'info');
+
+    RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+

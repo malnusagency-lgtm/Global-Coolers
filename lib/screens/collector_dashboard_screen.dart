@@ -178,7 +178,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                             Row(
                               children: [
                                 _timeChip(
-                                  label: 'ASAP',
+                                  label: 'Start Now',
                                   isSelected: selectedTime == null,
                                   onTap: () => setModalState(() => selectedTime = null),
                                 ),

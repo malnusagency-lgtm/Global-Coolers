@@ -516,7 +516,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
           ),
           child: Row(
             children: [
-              Expanded(child: _buildTypeTab('Pickup Now', Icons.bolt_rounded, _isImmediate, AppColors.amber)),
+              Expanded(child: _buildTypeTab('Start Now', Icons.bolt_rounded, _isImmediate, AppColors.amber)),
               Expanded(child: _buildTypeTab('Schedule Later', Icons.calendar_month_rounded, !_isImmediate, AppColors.primary)),
             ],
           ),

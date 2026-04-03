@@ -246,8 +246,13 @@ class SupabaseService {
       'p_qr': qrCodeId,
     });
     
-    if (res is Map && res.containsKey('pickup_id')) {
-      return res['pickup_id'].toString();
+    // Broadening the search for pickup_id in the response
+    if (res != null) {
+      if (res is Map && res.containsKey('pickup_id')) {
+        return res['pickup_id'].toString();
+      } else if (res is List && res.isNotEmpty && res[0] is Map && res[0].containsKey('pickup_id')) {
+        return res[0]['pickup_id'].toString();
+      }
     }
     return null;
   }

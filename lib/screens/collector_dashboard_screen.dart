@@ -492,14 +492,17 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
     return FutureBuilder<Map<String, dynamic>>(
       future: _supabaseService.getCollectorStats(),
       builder: (context, snapshot) {
-        final stats = snapshot.data ?? {'count': 0, 'earnings': 0};
+        final stats = snapshot.data ?? {
+          'total_collections': 0,
+          'total_earnings': 0,
+        };
         return Column(
           children: [
             Row(
               children: [
-                Expanded(child: _buildStatCard('Collections', '${stats['count']}', Icons.local_shipping_rounded, AppColors.primary)),
+                Expanded(child: _buildStatCard('Collections', '${stats['total_collections'] ?? 0}', Icons.local_shipping_rounded, AppColors.primary)),
                 const SizedBox(width: 12),
-                Expanded(child: _buildStatCard('Earnings (KES)', '${stats['earnings']}', Icons.account_balance_wallet_rounded, AppColors.amber)),
+                Expanded(child: _buildStatCard('Earnings (KES)', '${stats['total_earnings'] ?? 0}', Icons.account_balance_wallet_rounded, AppColors.amber)),
               ],
             ),
             const SizedBox(height: 12),

@@ -378,12 +378,23 @@ class SupabaseService {
   }
 
   Future<Map<String, dynamic>> getCollectorStats() async {
-    final profile = await getProfile();
-    return {
-      'eco_points': profile['eco_points'] ?? 0,
-      'total_collections': profile['total_collections'] ?? 0,
-      'rating': profile['rating'] ?? 0.0,
-    };
+    try {
+      final profile = await getProfile();
+      final earningsInfo = await getCollectorEarningsDetailed();
+      return {
+        'eco_points': profile['eco_points'] ?? 0,
+        'total_collections': profile['total_collections'] ?? 0,
+        'total_earnings': (earningsInfo['total_earnings'] ?? 0) as int,
+        'rating': (profile['rating'] ?? 0.0) as double,
+      };
+    } catch (_) {
+      return {
+        'eco_points': 0,
+        'total_collections': 0,
+        'total_earnings': 0,
+        'rating': 0.0,
+      };
+    }
   }
 
   Future<Map<String, dynamic>> getCollectorEarningsDetailed() async {

@@ -129,11 +129,13 @@ class SupabaseService {
   }
 
   /// Cancel a scheduled pickup
-  Future<void> cancelPickup(String pickupId) async {
+  /// Cancel a scheduled pickup (Resident)
+  Future<Map<String, dynamic>> residentCancelPickup(String pickupId) async {
     try {
-      await _supabase.rpc('resident_cancel_pickup', params: {
+      final response = await _supabase.rpc('resident_cancel_pickup', params: {
         'p_pickup_id': pickupId,
       });
+      return response as Map<String, dynamic>? ?? {'success': true};
     } catch (e) {
       debugPrint('Cancel Pickup Error: $e');
       rethrow;
@@ -284,11 +286,13 @@ class SupabaseService {
   }
 
   /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
-  Future<void> cancelPickupAssignment(String pickupId) async {
+  /// Collector cancels an accepted assignment (returns it to 'scheduled' status)
+  Future<Map<String, dynamic>> collectorCancelPickup(String pickupId) async {
     try {
-      await _supabase.rpc('collector_cancel_pickup', params: {
+      final response = await _supabase.rpc('collector_cancel_pickup', params: {
         'p_pickup_id': pickupId,
       });
+      return response as Map<String, dynamic>? ?? {'success': true};
     } catch (e) {
       debugPrint('Cancel Assignment Error: $e');
       rethrow;

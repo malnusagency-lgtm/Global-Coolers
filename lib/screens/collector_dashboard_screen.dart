@@ -719,7 +719,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
 
     if (confirm == true) {
       try {
-        await _supabaseService.cancelPickupAssignment(id.toString());
+        await _supabaseService.collectorCancelPickup(id.toString());
         if (mounted) {
           _declinedPickups.add(id.toString()); // Local persistence skip
           setState(() {});

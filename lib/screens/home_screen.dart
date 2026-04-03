@@ -565,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await _supabaseService.cancelPickup(pickup['id'].toString());
+                await _supabaseService.residentCancelPickup(pickup['id'].toString());
                 if (mounted) {
                   setState(() {}); // Refresh the list
                   ScaffoldMessenger.of(context).showSnackBar(

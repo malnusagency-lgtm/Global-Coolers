@@ -616,37 +616,6 @@ class SupabaseService {
     }
   }
 
-  /// Mark all completed pickups as hidden for the user
-  Future<void> clearUserHistory() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      // We'll mark them as 'hidden' or similar if the column exists, 
-      // or we can use a local 'hidden_pickups' filter if we don't want to change schema.
-      // For now, let's assume we can update a 'is_hidden' field or just return unhidden ones.
-      // If schema change isn't allowed, we'd use local storage.
-      // Assuming 'is_hidden' column might not exist, we will use a more robust way:
-      // We will update the status to 'archived' which won't show in normal history.
-      
-      await _supabase
-          .from('pickups')
-          .update({'status': 'archived'}) 
-          .eq('user_id', userId)
-          .eq('status', 'completed');
-          
-      // Also for collector if they are the one clearing
-       await _supabase
-          .from('pickups')
-          .update({'status': 'archived'}) 
-          .eq('collector_id', userId)
-          .eq('status', 'completed');
-          
-    } catch (e) {
-      debugPrint('Clear History Error: $e');
-      // Fallback: if 'archived' status isn't supported or errors, we'll ignore for now
-    }
-  }
 
   Future<List<dynamic>> getPendingPickups() async {
     final userId = _supabase.auth.currentUser?.id;

@@ -42,6 +42,9 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
   Position? _currentPosition;
   List<Map<String, dynamic>> _savedAddresses = [];
   late AnimationController _pulseController;
+  
+  String? _currentPickupId;
+  StreamSubscription? _statusSubscription;
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Organic', 'icon': Icons.compost_rounded, 'color': AppColors.organic},
@@ -62,6 +65,15 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
     _loadSavedAddresses();
     _fetchLocation();
     _updateCost();
+  }
+
+  @override
+  void dispose() {
+    _statusSubscription?.cancel();
+    _pulseController.dispose();
+    _addressFocusNode.dispose();
+    _addressController.dispose();
+    super.dispose();
   }
 
   void _updateCost() {
@@ -716,72 +728,98 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
       );
 
       if (pickupId == null) throw Exception('No pickup ID returned');
+      
+      setState(() {
+        _currentPickupId = pickupId;
+        _isFindingDriver = true;
+      });
 
-      if (_isImmediate) {
-        // Real-time broadcast: Listen for a driver to accept
-        bool collectorFound = false;
-        String? collectorId;
-
-        final startTime = DateTime.now();
-        await for (final status in _supabaseService.streamPickupStatus(pickupId)) {
-          if (status['collector_id'] != null) {
-            collectorFound = true;
-            collectorId = status['collector_id'].toString();
-            break;
-          }
-          if (DateTime.now().difference(startTime) > const Duration(seconds: 45)) break;
-        }
-
+      // Listen for collector actions in real-time
+      _statusSubscription?.cancel();
+      _statusSubscription = _supabaseService.streamPickupStatus(pickupId).listen((status) {
         if (!mounted) return;
-        if (collectorFound && collectorId != null) {
-          // Navigate to Live Tracking with the collector ID
-          Navigator.pushReplacementNamed(
-            context,
-            '/live-tracking',
-            arguments: {
-              'collectorId': collectorId,
-              'pickupId': pickupId,
-              'qrCode': qrCodeId,
-              'wasteType': _categories[_selectedCategoryIndex]['name'],
-              'weightKg': _selectedWeight,
-              'costKes': _estimatedCost,
-            },
-          );
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Collector found! Tracking live. 🚛'), backgroundColor: AppColors.success));
-        } else {
-          // No immediate collector — navigate to QR confirmation screen
-          Navigator.pushReplacementNamed(
-            context,
-            '/pickup-confirmation',
-            arguments: {
-              'pickupId': pickupId,
-              'qrCode': qrCodeId,
-              'wasteType': _categories[_selectedCategoryIndex]['name'],
-              'weightKg': _selectedWeight,
-              'costKes': _estimatedCost,
-            },
-          );
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent! Show your QR code when the collector arrives.'), backgroundColor: AppColors.primary));
+
+        final collectorId = status['collector_id']?.toString();
+        final currentStatus = status['status']?.toString();
+
+        if (collectorId != null) {
+          if (currentStatus == 'in_transit') {
+            // Collector is coming immediately!
+            _statusSubscription?.cancel();
+            setState(() => _isFindingDriver = false);
+            
+            Navigator.pushReplacementNamed(
+              context,
+              '/live-tracking',
+              arguments: {
+                'collectorId': collectorId,
+                'pickupId': pickupId,
+                'qrCode': qrCodeId,
+                'wasteType': _categories[_selectedCategoryIndex]['name'],
+                'weightKg': _selectedWeight,
+                'costKes': _estimatedCost,
+              },
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Collector is on the way! 🚛'), backgroundColor: AppColors.success)
+            );
+          } else if (currentStatus == 'scheduled' || currentStatus == 'accepted') {
+            // Collector scheduled for later
+            _statusSubscription?.cancel();
+            setState(() => _isFindingDriver = false);
+            
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Pickup scheduled with ${status['collector_name'] ?? 'a collector'}! 🎉'),
+                backgroundColor: AppColors.success,
+              )
+            );
+          }
         }
-      } else {
-        // Scheduled pickup — go to QR confirmation
-        Navigator.pushReplacementNamed(
-          context,
-          '/pickup-confirmation',
-          arguments: {
-          'pickupId': pickupId,
-          'qrCode': qrCodeId,
-          'wasteType': _categories[_selectedCategoryIndex]['name'],
-          'weightKg': _selectedWeight,
-          'costKes': _estimatedCost,
-        },
-        );
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pickup scheduled! 🎉'), backgroundColor: AppColors.success));
+      });
+
+      // If it's a scheduled request (not immediate), we might not want to hang 
+      // in the broadcasting screen indefinitely. But per requirements, 
+      // "next screen is broadcasting with cancel option".
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _isFindingDriver = false);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _cancelCurrentRequest() async {
+    if (_currentPickupId == null) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      final res = await _supabaseService.residentCancelPickup(_currentPickupId!);
+      _statusSubscription?.cancel();
+      if (mounted) {
+        setState(() {
+          _isFindingDriver = false;
+          _isLoading = false;
+        });
+        if (res['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Request cancelled.'))
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${res['message']}'))
+          );
+        }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) setState(() { _isLoading = false; _isFindingDriver = false; });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error cancelling: $e')));
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -831,6 +869,18 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> with Ticker
                   backgroundColor: Colors.white.withOpacity(0.1),
                   valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
                   minHeight: 3,
+                ),
+              ),
+              const SizedBox(height: 60),
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _cancelCurrentRequest,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                label: const Text('Cancel Request'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],

@@ -363,23 +363,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final dateStr = pickup['date'] as String? ?? '';
     final isImmediate = dateStr.startsWith('NOW:');
 
-    // Hide tracker for non-immediate scheduled requests
-    if (status == 'scheduled' && !isImmediate) {
-      return const SizedBox.shrink();
-    }
-
     String title, subtitle, emoji;
     Color color;
     IconData icon;
 
     switch (status) {
       case 'accepted':
-        title = 'Pickup Accepted! ✅';
-        final arrivalStr = pickup['scheduled_arrival'] != null 
-          ? ' for ${pickup['scheduled_arrival']}' 
-          : '';
-        subtitle = '$collectorName has scheduled your collection$arrivalStr.';
-        emoji = '📅'; color = AppColors.info; icon = Icons.check_circle_rounded;
+      case 'scheduled':
+        if (pickup['collector_id'] != null) {
+          title = 'Pickup Scheduled! ✅';
+          final arrivalStr = pickup['scheduled_arrival'] != null 
+            ? ' for ${pickup['scheduled_arrival']}' 
+            : '';
+          subtitle = '${pickup['collector_name'] ?? 'A collector'} confirmed your collection$arrivalStr.';
+          emoji = '📅'; color = AppColors.info; icon = Icons.check_circle_rounded;
+        } else {
+          title = 'Finding a Collector... 📡';
+          subtitle = isImmediate 
+            ? 'Broadcasting your request to nearby collectors. Hang tight!' 
+            : 'Your request is live. We\'ll notify you when a collector accepts.';
+          emoji = '📡'; color = AppColors.amber; icon = Icons.radar_rounded;
+        }
         break;
       case 'in_transit':
         title = 'Collector is on the way! 🚛';
@@ -436,9 +440,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   }), 
                   icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.teal)
                 ),
-              if (status == 'arrived')
+              if (status == 'arrived' || status == 'in_transit' || status == 'accepted' || status == 'scheduled')
                 ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, '/pickup-history'),
+                  onPressed: () => Navigator.pushNamed(context, '/pickup-confirmation', arguments: {
+                    'pickupId': pickup['id'],
+                    'qrCode': pickup['qr_code_id'],
+                    'wasteType': pickup['waste_type'],
+                    'weightKg': pickup['weight_kg'],
+                    'costKes': pickup['cost_kes'],
+                  }),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.success,
                     foregroundColor: Colors.white,

@@ -225,7 +225,7 @@ class _CollectorDashboardScreenState extends State<CollectorDashboardScreen> wit
                                       elevation: 8,
                                       shadowColor: AppColors.primary.withOpacity(0.4),
                                     ),
-                                    child: Text(selectedTime == null ? 'Start Now' : 'Accept Task', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    child: Text(selectedTime == null ? 'Accept & Go' : 'Confirm Schedule', style: const TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               ],

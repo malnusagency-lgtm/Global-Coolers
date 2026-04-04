@@ -55,7 +55,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
   }
 
-  /// Creates the user profile in Supabase with retry logic.
+  /// Creates the user profile in Supabase natively via RPC with retry logic.
   Future<bool> _createProfileWithRetry(String userId, {int maxAttempts = 5}) async {
     final phone = '+254${_phoneController.text.replaceAll(RegExp(r'\D'), '')}';
     
@@ -64,35 +64,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         _setStatus('Creating profile (attempt $attempt/$maxAttempts)...');
         
         final supabase = Supabase.instance.client;
+        final fullName = _nameController.text.trim();
+        final role = _selectedRoleIndex == 0 ? 'resident' : 'collector';
         
-        // First check if profile already exists
-        final existing = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', userId)
-            .maybeSingle();
+        // Atomically create profile (does nothing if it exists)
+        await supabase.rpc('create_user_profile', params: {
+          'p_id': userId,
+          'p_email': _emailController.text.trim(),
+          'p_full_name': fullName,
+          'p_role': role,
+          'p_phone': phone,
+        });
 
-        if (existing != null) {
-          // Profile exists — update it with the latest info
-          _setStatus('Updating profile info...');
-          await supabase.from('profiles').update({
-            'full_name': _nameController.text.trim(),
-            'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
-            'phone': phone,
-            'email': _emailController.text.trim(),
-          }).eq('id', userId);
-          return true;
-        }
-
-        // Create the profile with ALL user information
-        await supabase.from('profiles').insert({
-          'id': userId,
-          'full_name': _nameController.text.trim(),
-          'role': _selectedRoleIndex == 0 ? 'resident' : 'collector',
-          'phone': phone,
-          'email': _emailController.text.trim(),
-          'eco_points': 500,
-          'co2_saved': 0,
+        // Always update to ensure the latest name/phone are saved natively, even if it already existed
+        await supabase.rpc('update_user_profile', params: {
+          'p_full_name': fullName,
+          'p_phone': phone,
         });
 
         _setStatus('Profile created successfully!');

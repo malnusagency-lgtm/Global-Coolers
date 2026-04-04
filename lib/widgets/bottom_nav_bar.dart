@@ -28,7 +28,7 @@ class BottomNavBar extends StatelessWidget {
         ];
       case UserRole.collector:
         return [
-          _NavItem(Icons.map_rounded, Icons.map_outlined, l10n.translate('njia'), AppColors.primary),
+          _NavItem(Icons.home_rounded, Icons.home_outlined, l10n.translate('nyumbani'), AppColors.primary),
           _NavItem(Icons.history_rounded, Icons.history_outlined, l10n.translate('historia'), AppColors.teal),
           _NavItem(Icons.account_balance_wallet_rounded, Icons.account_balance_wallet_outlined, l10n.translate('tuzo'), AppColors.amber),
           _NavItem(Icons.person_rounded, Icons.person_outlined, l10n.translate('akaunti'), AppColors.indigo),

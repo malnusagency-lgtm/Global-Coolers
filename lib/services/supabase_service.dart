@@ -43,23 +43,15 @@ class SupabaseService {
     String? address,
     Map<String, dynamic>? extraUpdates,
   }) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-
-    final updates = <String, dynamic>{};
-    if (fullName != null) updates['full_name'] = fullName;
-    if (phone != null) updates['phone'] = phone;
-    if (address != null) updates['address'] = address;
-    if (extraUpdates != null) updates.addAll(extraUpdates);
-
-    if (updates.isEmpty) return;
-    await _supabase.from('profiles').update(updates).eq('id', userId);
+    await _supabase.rpc('update_user_profile', params: {
+      'p_full_name': fullName,
+      'p_phone': phone,
+      'p_address': address,
+    });
   }
 
   Future<void> updateOnlineStatus(bool isOnline) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('profiles').update({'is_online': isOnline}).eq('id', userId);
+    await _supabase.rpc('update_user_profile', params: {'p_is_online': isOnline});
   }
 
   // ========================= GPS & GEO =========================
@@ -77,13 +69,10 @@ class SupabaseService {
   }
 
   Future<void> updateLocation(double lat, double lng) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('profiles').update({
-      'latitude': lat,
-      'longitude': lng,
-      'last_active_at': DateTime.now().toIso8601String(),
-    }).eq('id', userId);
+    await _supabase.rpc('update_user_profile', params: {
+      'p_latitude': lat,
+      'p_longitude': lng,
+    });
   }
 
   Future<void> updateLocationFromGps() async {
@@ -130,24 +119,31 @@ class SupabaseService {
   }
 
   Future<void> saveUserAddress(Map<String, dynamic> addressData) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('addresses').insert({...addressData, 'user_id': userId});
+    await _supabase.rpc('add_user_address', params: {
+      'p_label': addressData['label'] ?? 'Home',
+      'p_address': addressData['address'],
+      'p_lat': addressData['latitude'],
+      'p_lng': addressData['longitude'],
+      'p_is_default': addressData['is_default'] ?? false,
+    });
   }
 
   Future<void> updateUserAddress(String id, Map<String, dynamic> data) async {
-    await _supabase.from('addresses').update(data).eq('id', id);
+    await _supabase.rpc('update_user_address', params: {
+      'p_address_id': id,
+      'p_label': data['label'],
+      'p_address': data['address'],
+      'p_lat': data['latitude'],
+      'p_lng': data['longitude'],
+    });
   }
 
   Future<void> deleteUserAddress(String id) async {
-    await _supabase.from('addresses').delete().eq('id', id);
+    await _supabase.rpc('delete_user_address', params: {'p_address_id': id});
   }
 
   Future<void> setDefaultAddress(String id) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('addresses').update({'is_default': false}).eq('user_id', userId);
-    await _supabase.from('addresses').update({'is_default': true}).eq('id', id);
+    await _supabase.rpc('set_default_address', params: {'p_address_id': id});
   }
 
   // ========================= PICKUPS =========================
@@ -287,11 +283,21 @@ class SupabaseService {
   }
 
   Future<void> reschedulePickupAssignment(String pickupId, String newTime) async {
-    await _supabase.from('pickups').update({'scheduled_arrival': newTime}).eq('id', pickupId);
+    await _supabase.rpc('collector_reschedule_pickup', params: {
+      'p_pickup_id': pickupId,
+      'p_scheduled_arrival': newTime,
+    });
   }
 
   Future<void> updatePickupStatus(String pickupId, String status) async {
-    await _supabase.from('pickups').update({'status': status}).eq('id', pickupId);
+    await _supabase.rpc('update_pickup_status', params: {
+      'p_pickup_id': pickupId,
+      'p_status': status,
+    });
+  }
+
+  Future<void> cancelPickup(String pickupId) async {
+    await updatePickupStatus(pickupId, 'cancelled');
   }
 
   Future<void> markPickupArrived(String pickupId) async {
@@ -320,9 +326,11 @@ class SupabaseService {
   }
 
   Future<void> redeemReward(String rewardId, int pointsCost, String mpesaNumber) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('redemptions').insert({'user_id': userId, 'reward_id': rewardId, 'points_spent': pointsCost, 'mpesa_number': mpesaNumber, 'status': 'pending'});
+    await _supabase.rpc('redeem_reward', params: {
+      'p_reward_id': rewardId,
+      'p_points_cost': pointsCost,
+      'p_mpesa_number': mpesaNumber,
+    });
   }
 
   // ========================= NOTIFICATIONS =========================
@@ -335,34 +343,32 @@ class SupabaseService {
   }
 
   Future<void> markNotificationRead(String id) async {
-    await _supabase.from('notifications').update({'is_read': true}).eq('id', id);
+    await _supabase.rpc('mark_notification_read', params: {'p_notification_id': id});
   }
 
   Future<void> markAllNotificationsRead() async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('notifications').update({'is_read': true}).eq('user_id', userId);
+    await _supabase.rpc('mark_notification_read');
   }
 
   // ========================= RATINGS =========================
 
   Future<void> submitRating({required String pickupId, required int rating, String comment = ''}) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-
-    final pickup = await _supabase.from('pickups').select().eq('id', pickupId).single();
-    final revieweeId = pickup['collector_id'] ?? pickup['user_id'];
-
-    await _supabase.from('reviews').insert({'pickup_id': pickupId, 'reviewer_id': userId, 'reviewee_id': revieweeId, 'rating': rating, 'comment': comment});
-    await _supabase.from('pickups').update({'rating': rating}).eq('id', pickupId);
+    await _supabase.rpc('submit_pickup_rating', params: {
+      'p_pickup_id': pickupId,
+      'p_rating': rating,
+      'p_comment': comment,
+    });
   }
 
   // ========================= REPORTS =========================
 
   Future<void> submitReport({required String issueType, required String location, required String description, String? photoUrl}) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('reports').insert({'user_id': userId, 'issue_type': issueType, 'location': location, 'description': description, 'photo_url': photoUrl});
+    await _supabase.rpc('submit_report', params: {
+      'p_issue_type': issueType,
+      'p_location': location,
+      'p_description': description,
+      'p_photo_url': photoUrl,
+    });
   }
 
   // ========================= CHALLENGES =========================
@@ -387,9 +393,7 @@ class SupabaseService {
   }
 
   Future<void> joinChallenge(String challengeId) async {
-    final userId = currentUser?.id;
-    if (userId == null) return;
-    await _supabase.from('challenge_participants').insert({'user_id': userId, 'challenge_id': challengeId});
+    await _supabase.rpc('join_challenge', params: {'p_challenge_id': challengeId});
   }
 
   // ========================= ANALYTICS =========================

@@ -85,10 +85,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _messageController.clear();
     try {
-      await _supabase.from('messages').insert({
-        'pickup_id': _pickupId,
-        'sender_id': _myUserId,
-        'message': text.trim(),
+      await _supabase.rpc('send_chat_message', params: {
+        'p_pickup_id': _pickupId,
+        'p_message': text.trim(),
       });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send: $e')));

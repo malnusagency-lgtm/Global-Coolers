@@ -33,27 +33,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Ensures a profile exists for the given user. If not, creates one.
+  /// Ensures a profile exists for the given user. If not, creates one natively and securely via RPC.
   Future<void> _ensureProfileExists(String userId, String email) async {
     try {
       final supabase = Supabase.instance.client;
-      final existing = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (existing == null) {
-        _setStatus('Setting up your profile...');
-        await supabase.from('profiles').insert({
-          'id': userId,
-          'full_name': email.split('@').first,
-          'role': 'resident',
-          'email': email,
-          'eco_points': 500,
-          'co2_saved': 0,
-        });
-      }
+      _setStatus('Setting up your profile...');
+      await supabase.rpc('create_user_profile', params: {
+        'p_id': userId,
+        'p_email': email,
+        'p_full_name': email.split('@').first,
+        'p_role': 'resident',
+      });
     } catch (e) {
       debugPrint('Profile check/create failed: $e');
       // Non-fatal — the app can still function

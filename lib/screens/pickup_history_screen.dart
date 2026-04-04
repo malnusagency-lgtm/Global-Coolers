@@ -243,6 +243,34 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
                     ],
                   ),
                 ),
+                if (status == 'scheduled' || status == 'accepted' || status == 'in_transit' || status == 'arrived') ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/pickup-confirmation', arguments: {
+                      'pickupId': pickup['id'],
+                      'qrCode': pickup['qr_code_id'],
+                      'wasteType': pickup['waste_type'],
+                      'weightKg': pickup['weight_kg'],
+                      'costKes': pickup['cost_kes'],
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.08),
+                        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_rounded, size: 12, color: AppColors.success),
+                          SizedBox(width: 4),
+                          Text('Show QR', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 if (status == 'scheduled' || status == 'accepted') ...[
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -250,10 +278,18 @@ class _PickupHistoryScreenState extends State<PickupHistoryScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.08),
                         border: Border.all(color: AppColors.error.withOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close_rounded, size: 12, color: AppColors.error),
+                          SizedBox(width: 4),
+                          Text('Cancel', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ),
                 ],
